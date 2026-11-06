@@ -1,0 +1,92 @@
+[
+  {
+    "id": "DOC-001",
+    "title": "Core Cloud Microservice Architecture",
+    "category": "Architecture",
+    "content": "The API Gateway routes incoming requests to AuthService, OrderService, and PaymentGateway. AuthService validates user credentials and depends on RedisCache for session management and PostgresCluster for persistent identity records. OrderService coordinates requests with PaymentGateway and InventoryService."
+  },
+  {
+    "id": "DOC-002",
+    "title": "Authentication Service Infrastructure",
+    "category": "Architecture",
+    "content": "AuthService provides OAuth2-based authentication for the API Gateway and OrderService. It stores identity records in PostgresCluster and caches access tokens in RedisCache. MonitoringService tracks authentication latency and reports failures to the incident management system."
+  },
+  {
+    "id": "DOC-003",
+    "title": "Payment Processing Dependencies",
+    "category": "Service Dependency",
+    "content": "PaymentGateway processes transactions initiated by OrderService and communicates with PostgresCluster to persist transaction records. PaymentGateway depends on AuthService for authorization and RedisCache for temporary idempotency keys. NotificationService receives payment events through KafkaCluster."
+  },
+  {
+    "id": "DOC-004",
+    "title": "Database Cluster High Availability Design",
+    "category": "Architecture",
+    "content": "PostgresCluster provides persistent storage for AuthService, PaymentGateway, OrderService, and InventoryService. Automated replication and database failover protect critical transaction records. MonitoringService observes replication lag and triggers alerts when database availability degrades."
+  },
+  {
+    "id": "DOC-005",
+    "title": "Redis Cache Failure Postmortem",
+    "category": "Incident",
+    "content": "Incident-304 occurred when RedisCache experienced memory exhaustion during a sudden increase in authentication traffic. AuthService experienced elevated latency because session lookups were delayed, affecting requests routed through the API Gateway. MonitoringService detected the degradation and initiated the documented recovery procedure."
+  },
+  {
+    "id": "DOC-006",
+    "title": "IAM Failover Security Policy",
+    "category": "Security Policy",
+    "content": "IAM-Failover-Policy defines emergency access controls for AuthService and PaymentGateway during identity infrastructure outages. The policy requires temporary credentials, least-privilege IAM roles, and audit logging. Incident-304 demonstrated why the failover policy must be tested alongside RedisCache recovery procedures."
+  },
+  {
+    "id": "DOC-007",
+    "title": "Order Management Service Architecture",
+    "category": "Architecture",
+    "content": "OrderService coordinates customer orders by communicating with AuthService, PaymentGateway, and InventoryService. It publishes order lifecycle events to KafkaCluster for asynchronous processing. PostgresCluster stores order records while NotificationService consumes order events to send customer updates."
+  },
+  {
+    "id": "DOC-008",
+    "title": "Notification Event Processing",
+    "category": "Service Dependency",
+    "content": "NotificationService consumes payment and order events from KafkaCluster. It depends on AuthService to validate internal service credentials and RedisCache to prevent duplicate notification delivery. PaymentGateway publishes successful payment events, while OrderService publishes shipment and cancellation events."
+  },
+  {
+    "id": "DOC-009",
+    "title": "Inventory Service Dependency Mapping",
+    "category": "Service Dependency",
+    "content": "InventoryService maintains stock availability and communicates with OrderService during order creation. It persists inventory quantities in PostgresCluster and publishes stock reservation events to KafkaCluster. MonitoringService tracks inventory synchronization failures and delayed event processing."
+  },
+  {
+    "id": "DOC-010",
+    "title": "Kafka Cluster Reliability Incident",
+    "category": "Incident",
+    "content": "A KafkaCluster broker outage delayed event delivery to NotificationService and InventoryService. OrderService continued accepting requests, but asynchronous inventory reservations accumulated in the event queue. MonitoringService detected consumer lag and escalated the incident to the platform engineering team."
+  },
+  {
+    "id": "DOC-011",
+    "title": "API Gateway Traffic Management",
+    "category": "Architecture",
+    "content": "The API Gateway provides centralized routing, rate limiting, and request authentication for AuthService, OrderService, and PaymentGateway. It uses health checks to identify unavailable downstream services. MonitoringService collects gateway latency metrics and correlates request failures with Incident-304."
+  },
+  {
+    "id": "DOC-012",
+    "title": "Disaster Recovery and Database Failover",
+    "category": "Security Policy",
+    "content": "The disaster recovery procedure defines recovery objectives for PostgresCluster, RedisCache, and KafkaCluster. IAM-Failover-Policy governs privileged access during emergency restoration. AuthService and PaymentGateway must validate connectivity and transaction integrity before the API Gateway restores normal traffic."
+  },
+  {
+    "id": "DOC-013",
+    "title": "Monitoring and Incident Response Architecture",
+    "category": "Architecture",
+    "content": "MonitoringService collects metrics and logs from AuthService, PaymentGateway, OrderService, InventoryService, RedisCache, and PostgresCluster. It correlates infrastructure alerts with KafkaCluster consumer lag and API Gateway request failures. Incident-304 is used as a reference scenario for validating automated alert escalation."
+  },
+  {
+    "id": "DOC-014",
+    "title": "Authentication and Payment Security Controls",
+    "category": "Security Policy",
+    "content": "AuthService and PaymentGateway enforce service-to-service authentication using short-lived credentials and least-privilege IAM roles. IAM-Failover-Policy governs emergency credential issuance and audit requirements. MonitoringService records suspicious authorization failures and security policy violations."
+  },
+  {
+    "id": "DOC-015",
+    "title": "End-to-End Microservice Dependency Analysis",
+    "category": "Service Dependency",
+    "content": "A customer request enters through the API Gateway, is authenticated by AuthService, and is processed by OrderService. OrderService coordinates PaymentGateway and InventoryService, which depend on PostgresCluster and publish events to KafkaCluster. NotificationService consumes these events, while MonitoringService observes the entire workflow and Incident-304 documents the RedisCache failure that previously disrupted authentication."
+  }
+]
