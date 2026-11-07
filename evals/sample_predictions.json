@@ -1,0 +1,90 @@
+
+[
+  {
+    "id": "EVAL-001",
+    "predicted_entities": ["AuthService", "PostgresCluster"],
+    "predicted_relations": ["AuthService|DEPENDS_ON|PostgresCluster"]
+  },
+  {
+    "id": "EVAL-002",
+    "predicted_entities": ["PaymentGateway", "AuthService"],
+    "predicted_relations": ["PaymentGateway|DEPENDS_ON|AuthService"]
+  },
+  {
+    "id": "EVAL-003",
+    "predicted_entities": ["PaymentGateway", "PostgresCluster", "RedisCache"],
+    "predicted_relations": ["PaymentGateway|DEPENDS_ON|PostgresCluster"]
+  },
+  {
+    "id": "EVAL-004",
+    "predicted_entities": ["Incident-304", "PaymentGateway", "RedisCache"],
+    "predicted_relations": [
+      "Incident-304|AFFECTS|PaymentGateway",
+      "Incident-304|TRIGGERED_BY|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-005",
+    "predicted_entities": ["IAM-Failover-Policy", "AuthService"],
+    "predicted_relations": ["IAM-Failover-Policy|GOVERNS|AuthService"]
+  },
+  {
+    "id": "EVAL-006",
+    "predicted_entities": ["MonitoringService", "PaymentGateway", "RedisCache"],
+    "predicted_relations": ["MonitoringService|MONITORS|PaymentGateway"]
+  },
+  {
+    "id": "EVAL-007",
+    "predicted_entities": ["NotificationService", "AuthService"],
+    "predicted_relations": ["NotificationService|DEPENDS_ON|AuthService"]
+  },
+  {
+    "id": "EVAL-008",
+    "predicted_entities": ["Incident-305", "NotificationService", "PaymentGateway"],
+    "predicted_relations": ["Incident-305|AFFECTS|NotificationService"]
+  },
+  {
+    "id": "EVAL-009",
+    "predicted_entities": ["PlatformEngineering", "MonitoringService"],
+    "predicted_relations": ["PlatformEngineering|OPERATES|MonitoringService"]
+  },
+  {
+    "id": "EVAL-010",
+    "predicted_entities": ["DatabaseOperations", "PostgresCluster"],
+    "predicted_relations": ["DatabaseOperations|MANAGES|PostgresCluster"]
+  },
+  {
+    "id": "EVAL-011",
+    "predicted_entities": ["Incident-306", "AuthService", "PostgresCluster"],
+    "predicted_relations": [
+      "Incident-306|AFFECTS|AuthService",
+      "Incident-306|TRIGGERED_BY|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-012",
+    "predicted_entities": ["AuthService", "RedisCache"],
+    "predicted_relations": ["AuthService|DEPENDS_ON|RedisCache"]
+  },
+  {
+    "id": "EVAL-013",
+    "predicted_entities": ["IAM-Failover-Policy", "PaymentGateway"],
+    "predicted_relations": ["IAM-Failover-Policy|GOVERNS|PaymentGateway"]
+  },
+  {
+    "id": "EVAL-014",
+    "predicted_entities": ["MonitoringService", "PostgresCluster"],
+    "predicted_relations": [
+      "MonitoringService|MONITORS|PostgresCluster",
+      "MonitoringService|MONITORS|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-015",
+    "predicted_entities": ["Incident-307", "PaymentGateway", "AuthService"],
+    "predicted_relations": [
+      "Incident-307|AFFECTS|PaymentGateway",
+      "Incident-307|TRIGGERED_BY|PostgresCluster"
+    ]
+  }
+]

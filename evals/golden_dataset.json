@@ -1,0 +1,126 @@
+
+[
+  {
+    "id": "EVAL-001",
+    "text": "AuthService authenticates incoming requests and depends on PostgresCluster for user credentials.",
+    "expected_entities": ["AuthService", "PostgresCluster"],
+    "expected_relations": ["AuthService|DEPENDS_ON|PostgresCluster"]
+  },
+  {
+    "id": "EVAL-002",
+    "text": "PaymentGateway uses AuthService to validate customer sessions before processing transactions.",
+    "expected_entities": ["PaymentGateway", "AuthService"],
+    "expected_relations": ["PaymentGateway|DEPENDS_ON|AuthService"]
+  },
+  {
+    "id": "EVAL-003",
+    "text": "PaymentGateway stores transaction records in PostgresCluster and uses RedisCache for temporary transaction state.",
+    "expected_entities": ["PaymentGateway", "PostgresCluster", "RedisCache"],
+    "expected_relations": [
+      "PaymentGateway|DEPENDS_ON|PostgresCluster",
+      "PaymentGateway|DEPENDS_ON|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-004",
+    "text": "Incident-304 caused PaymentGateway failures after RedisCache became unavailable.",
+    "expected_entities": ["Incident-304", "PaymentGateway", "RedisCache"],
+    "expected_relations": [
+      "Incident-304|AFFECTS|PaymentGateway",
+      "Incident-304|TRIGGERED_BY|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-005",
+    "text": "IAM-Failover-Policy governs AuthService permissions during regional authentication failures.",
+    "expected_entities": ["IAM-Failover-Policy", "AuthService"],
+    "expected_relations": [
+      "IAM-Failover-Policy|GOVERNS|AuthService"
+    ]
+  },
+  {
+    "id": "EVAL-006",
+    "text": "MonitoringService monitors PaymentGateway and generates alerts when transaction latency exceeds the configured threshold.",
+    "expected_entities": ["MonitoringService", "PaymentGateway"],
+    "expected_relations": [
+      "MonitoringService|MONITORS|PaymentGateway"
+    ]
+  },
+  {
+    "id": "EVAL-007",
+    "text": "NotificationService depends on AuthService to validate notification delivery permissions.",
+    "expected_entities": ["NotificationService", "AuthService"],
+    "expected_relations": [
+      "NotificationService|DEPENDS_ON|AuthService"
+    ]
+  },
+  {
+    "id": "EVAL-008",
+    "text": "Incident-305 affected NotificationService because PaymentGateway generated invalid event payloads.",
+    "expected_entities": ["Incident-305", "NotificationService", "PaymentGateway"],
+    "expected_relations": [
+      "Incident-305|AFFECTS|NotificationService",
+      "Incident-305|TRIGGERED_BY|PaymentGateway"
+    ]
+  },
+  {
+    "id": "EVAL-009",
+    "text": "PlatformEngineering operates MonitoringService and maintains its production deployment.",
+    "expected_entities": ["PlatformEngineering", "MonitoringService"],
+    "expected_relations": [
+      "PlatformEngineering|OPERATES|MonitoringService"
+    ]
+  },
+  {
+    "id": "EVAL-010",
+    "text": "DatabaseOperations manages PostgresCluster and handles database failover procedures.",
+    "expected_entities": ["DatabaseOperations", "PostgresCluster"],
+    "expected_relations": [
+      "DatabaseOperations|MANAGES|PostgresCluster"
+    ]
+  },
+  {
+    "id": "EVAL-011",
+    "text": "Incident-306 affected AuthService after PostgresCluster experienced connection exhaustion.",
+    "expected_entities": ["Incident-306", "AuthService", "PostgresCluster"],
+    "expected_relations": [
+      "Incident-306|AFFECTS|AuthService",
+      "Incident-306|TRIGGERED_BY|PostgresCluster"
+    ]
+  },
+  {
+    "id": "EVAL-012",
+    "text": "AuthService depends on RedisCache to retrieve cached session information.",
+    "expected_entities": ["AuthService", "RedisCache"],
+    "expected_relations": [
+      "AuthService|DEPENDS_ON|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-013",
+    "text": "IAM-Failover-Policy governs PaymentGateway access permissions during disaster recovery.",
+    "expected_entities": ["IAM-Failover-Policy", "PaymentGateway"],
+    "expected_relations": [
+      "IAM-Failover-Policy|GOVERNS|PaymentGateway"
+    ]
+  },
+  {
+    "id": "EVAL-014",
+    "text": "MonitoringService monitors PostgresCluster and RedisCache to identify infrastructure availability problems.",
+    "expected_entities": ["MonitoringService", "PostgresCluster", "RedisCache"],
+    "expected_relations": [
+      "MonitoringService|MONITORS|PostgresCluster",
+      "MonitoringService|MONITORS|RedisCache"
+    ]
+  },
+  {
+    "id": "EVAL-015",
+    "text": "Incident-307 affected PaymentGateway and AuthService after PostgresCluster became unavailable.",
+    "expected_entities": ["Incident-307", "PaymentGateway", "AuthService", "PostgresCluster"],
+    "expected_relations": [
+      "Incident-307|AFFECTS|PaymentGateway",
+      "Incident-307|AFFECTS|AuthService",
+      "Incident-307|TRIGGERED_BY|PostgresCluster"
+    ]
+  }
+]
