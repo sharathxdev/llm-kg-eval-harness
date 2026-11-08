@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 from typing import Any, Protocol
 
-import networkx as nx
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

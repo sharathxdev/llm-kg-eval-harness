@@ -4,7 +4,6 @@ from typing import Any
 
 import networkx as nx
 
-from src.models import EntityNode
 
 
 class GraphQueryEngine:
