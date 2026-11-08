@@ -10,7 +10,7 @@ from typing import Any
 
 import networkx as nx
 
-from src.models import EntityNode, EntityType, RelationEdge
+from src.models import EntityNode, EntityType, ExtractionResult, RelationEdge
 
 logger = logging.getLogger(__name__)
 
@@ -329,3 +329,108 @@ class KnowledgeGraphBuilder:
             "connected_components": components,
         }
 
+
+    def build_from_extractions(
+        self,
+        extractions: list[ExtractionResult],
+    ) -> nx.MultiDiGraph:
+        """Build or extend the graph using validated LLM extraction results.
+
+        Entities appearing in multiple documents are merged, and their
+        document IDs are retained as provenance metadata.
+        """
+        if not isinstance(extractions, list):
+            raise TypeError("Extractions must be provided as a list.")
+
+        # Validate the complete batch before modifying the graph.
+        known_entities: dict[str, tuple[str, EntityType]] = {}
+
+        for extraction in extractions:
+            if not isinstance(extraction, ExtractionResult):
+                raise TypeError(
+                    "Every item must be an ExtractionResult instance."
+                )
+
+            entity_ids = [entity.id for entity in extraction.entities]
+
+            if len(entity_ids) != len(set(entity_ids)):
+                raise ValueError(
+                    f"Duplicate entity IDs in extraction "
+                    f"{extraction.document_id}."
+                )
+
+            current_entity_ids = set(entity_ids)
+
+            for entity in extraction.entities:
+                identity = (entity.name, entity.entity_type)
+                document_ids = entity.metadata.get("document_ids", [])
+
+                if not isinstance(document_ids, list) or not all(
+                    isinstance(document_id, str)
+                    for document_id in document_ids
+                ):
+                    raise ValueError(
+                        f"Invalid document_ids metadata for entity: {entity.id}"
+                    )
+
+                if entity.id in known_entities:
+                    if known_entities[entity.id] != identity:
+                        raise ValueError(
+                            f"Conflicting definitions for entity ID: "
+                            f"{entity.id}"
+                        )
+                else:
+                    known_entities[entity.id] = identity
+
+                if entity.id in self.graph:
+                    existing = self.graph.nodes[entity.id]
+                    existing_identity = (
+                        existing.get("name"),
+                        EntityType(existing.get("entity_type")),
+                    )
+                    if existing_identity != identity:
+                        raise ValueError(
+                            f"Entity ID conflicts with an existing graph "
+                            f"node: {entity.id}"
+                        )
+
+            for relation in extraction.relations:
+                if relation.source_id not in current_entity_ids:
+                    raise ValueError(
+                        f"Relationship references an unknown source entity: "
+                        f"{relation.source_id}"
+                    )
+
+                if relation.target_id not in current_entity_ids:
+                    raise ValueError(
+                        f"Relationship references an unknown target entity: "
+                        f"{relation.target_id}"
+                    )
+
+                if relation.source_id == relation.target_id:
+                    raise ValueError(
+                        "Self-referencing relationships are not allowed."
+                    )
+
+        # Add entities and preserve the source document IDs.
+        for extraction in extractions:
+            for entity in extraction.entities:
+                metadata = dict(entity.metadata)
+                document_ids = set(metadata.get("document_ids", []))
+                document_ids.add(extraction.document_id)
+                metadata["document_ids"] = sorted(document_ids)
+
+                self.add_entity(
+                    entity.model_copy(update={"metadata": metadata})
+                )
+
+            for relation in extraction.relations:
+                self.add_relation(relation)
+
+        logger.info(
+            "LLM graph construction completed: %d nodes, %d edges",
+            self.graph.number_of_nodes(),
+            self.graph.number_of_edges(),
+        )
+
+        return self.graph
