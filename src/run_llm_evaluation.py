@@ -28,6 +28,10 @@ REPORT_PATH = (
     REPORT_DIRECTORY / "llm_evaluation_report.json"
 )
 
+TARGETED_REPORT_PATH = (
+    REPORT_DIRECTORY / "llm_evaluation_report_targeted.json"
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -364,18 +368,29 @@ def print_summary(report: dict[str, Any]) -> None:
     print("\n" + "=" * 60)
 
 
-def run_evaluation(limit: int | None = None) -> dict[str, Any]:
+def run_evaluation(
+    limit: int | None = None,
+    sample_ids: list[str] | None = None,
+) -> dict[str, Any]:
     """Run the real LLM evaluation workflow."""
+    if limit is not None and sample_ids is not None:
+        raise ValueError(
+            "Use either --limit or --sample-ids, not both."
+        )
 
     logger.info("Starting real LLM evaluation.")
-
     dataset = load_golden_dataset()
 
     if limit is not None:
         if limit < 1:
             raise ValueError("Limit must be at least 1.")
-
         dataset = dataset[:limit]
+
+    if sample_ids is not None:
+        dataset = select_golden_samples(dataset, sample_ids)
+        report_path = TARGETED_REPORT_PATH
+    else:
+        report_path = REPORT_PATH
 
     logger.info(
         "Loaded %d evaluation samples.",
@@ -383,7 +398,6 @@ def run_evaluation(limit: int | None = None) -> dict[str, Any]:
     )
 
     extractor = LLMEntityExtractor()
-
     results = evaluate_real_predictions(
         dataset=dataset,
         extractor=extractor,
@@ -399,7 +413,7 @@ def run_evaluation(limit: int | None = None) -> dict[str, Any]:
         exist_ok=True,
     )
 
-    with REPORT_PATH.open(
+    with report_path.open(
         "w",
         encoding="utf-8",
     ) as file:
@@ -414,30 +428,76 @@ def run_evaluation(limit: int | None = None) -> dict[str, Any]:
 
     logger.info(
         "Real LLM evaluation report saved to %s",
-        REPORT_PATH,
+        report_path,
     )
 
     return report
 
+def select_golden_samples(
+    dataset: list[dict[str, Any]],
+    sample_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Select golden samples by ID while preserving dataset order."""
+    if not sample_ids:
+        raise ValueError("At least one sample ID must be provided.")
+
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ValueError("Duplicate sample IDs were provided.")
+
+    samples_by_id = {
+        sample["id"]: sample
+        for sample in dataset
+    }
+
+    unknown_ids = sorted(set(sample_ids) - samples_by_id.keys())
+
+    if unknown_ids:
+        raise ValueError(
+            f"Unknown sample IDs: {', '.join(unknown_ids)}"
+        )
+
+    requested_ids = set(sample_ids)
+
+    return [
+        sample
+        for sample in dataset
+        if sample["id"] in requested_ids
+    ]
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run real LLM extraction evaluation."
     )
 
-    parser.add_argument(
+    selection_group = parser.add_mutually_exclusive_group()
+
+    selection_group.add_argument(
         "--limit",
         type=int,
         default=None,
         help="Maximum number of golden samples to evaluate.",
     )
 
+    selection_group.add_argument(
+        "--sample-ids",
+        nargs="+",
+        default=None,
+        help="Specific golden sample IDs to evaluate.",
+    )
+
     args = parser.parse_args()
 
     try:
-        run_evaluation(limit=args.limit)
-
-    except (FileNotFoundError, ValueError, TypeError, RuntimeError) as exc:
+        run_evaluation(
+            limit=args.limit,
+            sample_ids=args.sample_ids,
+        )
+    except (
+        FileNotFoundError,
+        ValueError,
+        TypeError,
+        RuntimeError,
+    ) as exc:
         logger.error("Real LLM evaluation failed: %s", exc)
         raise SystemExit(1) from exc
 

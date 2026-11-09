@@ -152,3 +152,193 @@ def test_create_report_records_actual_model_name():
 
     assert report["model"] == "gpt-4o-mini"
     assert report["evaluation_type"] == "real_llm_extraction"
+
+
+def test_select_golden_samples_success_preserves_dataset_order():
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+        {"id": "EVAL-003"},
+        {"id": "EVAL-004"},
+    ]
+
+    selected = runner.select_golden_samples(
+        dataset,
+        ["EVAL-004", "EVAL-002"],
+    )
+
+    assert [sample["id"] for sample in selected] == [
+        "EVAL-002",
+        "EVAL-004",
+    ]
+
+
+def test_select_golden_samples_rejects_unknown_ids():
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+    ]
+
+    with pytest.raises(ValueError, match="Unknown sample IDs: EVAL-999"):
+        runner.select_golden_samples(dataset, ["EVAL-999"])
+
+
+def test_select_golden_samples_rejects_duplicate_ids():
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="Duplicate sample IDs were provided",
+    ):
+        runner.select_golden_samples(
+            dataset,
+            ["EVAL-001", "EVAL-001"],
+        )
+
+
+def test_select_golden_samples_rejects_empty_selection():
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="At least one sample ID must be provided",
+    ):
+        runner.select_golden_samples(dataset, [])
+
+
+def test_run_evaluation_targeted_selection_preserves_baseline(
+    tmp_path,
+    monkeypatch,
+):
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+        {"id": "EVAL-003"},
+    ]
+
+    baseline_path = tmp_path / "llm_evaluation_report.json"
+    targeted_path = tmp_path / "llm_evaluation_report_targeted.json"
+
+    baseline_content = '{"original": "baseline"}'
+    baseline_path.write_text(baseline_content, encoding="utf-8")
+
+    captured = {}
+
+    class MockExtractor:
+        model = "mock-model"
+
+    def mock_evaluate_real_predictions(dataset, extractor):
+        captured["ids"] = [sample["id"] for sample in dataset]
+        return {"selected_ids": captured["ids"]}
+
+    monkeypatch.setattr(runner, "load_golden_dataset", lambda: dataset)
+    monkeypatch.setattr(
+        runner,
+        "LLMEntityExtractor",
+        MockExtractor,
+    )
+    monkeypatch.setattr(
+        runner,
+        "evaluate_real_predictions",
+        mock_evaluate_real_predictions,
+    )
+    monkeypatch.setattr(
+        runner,
+        "create_report",
+        lambda results, model_name: {
+            "model": model_name,
+            "selected_ids": results["selected_ids"],
+        },
+    )
+    monkeypatch.setattr(runner, "print_summary", lambda report: None)
+    monkeypatch.setattr(runner, "REPORT_DIRECTORY", tmp_path)
+    monkeypatch.setattr(runner, "REPORT_PATH", baseline_path)
+    monkeypatch.setattr(
+        runner,
+        "TARGETED_REPORT_PATH",
+        targeted_path,
+    )
+
+    report = runner.run_evaluation(
+        sample_ids=["EVAL-003", "EVAL-001"],
+    )
+
+    assert captured["ids"] == ["EVAL-001", "EVAL-003"]
+    assert report["selected_ids"] == ["EVAL-001", "EVAL-003"]
+    assert targeted_path.exists()
+    assert json.loads(targeted_path.read_text()) == report
+    assert baseline_path.read_text() == baseline_content
+
+
+def test_run_evaluation_limit_uses_original_report_path(
+    tmp_path,
+    monkeypatch,
+):
+    dataset = [
+        {"id": "EVAL-001"},
+        {"id": "EVAL-002"},
+        {"id": "EVAL-003"},
+    ]
+
+    baseline_path = tmp_path / "llm_evaluation_report.json"
+    targeted_path = tmp_path / "llm_evaluation_report_targeted.json"
+
+    captured = {}
+
+    class MockExtractor:
+        model = "mock-model"
+
+    def mock_evaluate_real_predictions(dataset, extractor):
+        captured["ids"] = [sample["id"] for sample in dataset]
+        return {"selected_ids": captured["ids"]}
+
+    monkeypatch.setattr(runner, "load_golden_dataset", lambda: dataset)
+    monkeypatch.setattr(
+        runner,
+        "LLMEntityExtractor",
+        MockExtractor,
+    )
+    monkeypatch.setattr(
+        runner,
+        "evaluate_real_predictions",
+        mock_evaluate_real_predictions,
+    )
+    monkeypatch.setattr(
+        runner,
+        "create_report",
+        lambda results, model_name: {
+            "model": model_name,
+            "selected_ids": results["selected_ids"],
+        },
+    )
+    monkeypatch.setattr(runner, "print_summary", lambda report: None)
+    monkeypatch.setattr(runner, "REPORT_DIRECTORY", tmp_path)
+    monkeypatch.setattr(runner, "REPORT_PATH", baseline_path)
+    monkeypatch.setattr(
+        runner,
+        "TARGETED_REPORT_PATH",
+        targeted_path,
+    )
+
+    runner.run_evaluation(limit=2)
+
+    assert captured["ids"] == ["EVAL-001", "EVAL-002"]
+    assert baseline_path.exists()
+    assert not targeted_path.exists()
+
+
+def test_run_evaluation_rejects_limit_and_sample_ids_together():
+    with pytest.raises(
+        ValueError,
+        match="Use either --limit or --sample-ids, not both",
+    ):
+        runner.run_evaluation(
+            limit=2,
+            sample_ids=["EVAL-001"],
+        )
