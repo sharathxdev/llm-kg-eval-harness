@@ -90,7 +90,7 @@ class AutoEmbeddingProvider:
             )
             self.provider.fit(texts)
             logger.info("Using Sentence Transformer embeddings.")
-        except Exception as exc:
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
             logger.warning(
                 "Transformer embeddings unavailable; using TF-IDF fallback: %s",
                 exc,

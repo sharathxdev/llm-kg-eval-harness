@@ -1,6 +1,8 @@
 
 """Tests for the GraphRAG generation pipeline."""
 
+from typing import ClassVar
+
 import pytest
 
 from src.pipeline import GraphRAGPipeline, LLMGenerationError
@@ -15,7 +17,7 @@ class MockChoice:
 
 
 class MockResponse:
-    choices = [MockChoice()]
+    choices: ClassVar[list[MockChoice]] = [MockChoice()]
 
 
 class MockCompletions:

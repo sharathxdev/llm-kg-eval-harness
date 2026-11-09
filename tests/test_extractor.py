@@ -6,7 +6,6 @@ import pytest
 
 from src.extractor import LLMEntityExtractor, LLMExtractionError
 
-
 DOCUMENT = {
     "id": "DOC-TEST-001",
     "title": "Payment Architecture",
@@ -137,7 +136,7 @@ def test_empty_document_content_is_rejected(extractor):
 
 
 def test_non_dictionary_document_is_rejected(extractor):
-    with pytest.raises(ValueError, match="must be a dictionary"):
+    with pytest.raises(TypeError, match="must be a dictionary"):
         extractor.extract("invalid")
 
 

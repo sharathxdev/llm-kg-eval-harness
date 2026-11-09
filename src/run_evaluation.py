@@ -8,12 +8,11 @@ calculates extraction metrics, and exports a JSON report.
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from src.evaluator import EvaluationEngine
-
 
 # Project paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -66,7 +65,7 @@ def validate_dataset(
     """Validate dataset structure and index records by ID."""
 
     if not isinstance(dataset, list):
-        raise ValueError(
+        raise TypeError(
             f"{dataset_name} must contain a JSON array."
         )
 
@@ -74,7 +73,7 @@ def validate_dataset(
 
     for index, record in enumerate(dataset):
         if not isinstance(record, dict):
-            raise ValueError(
+            raise TypeError(
                 f"{dataset_name} record {index} must be an object."
             )
 
@@ -100,7 +99,7 @@ def validate_dataset(
 
         for field in required_fields - {"id", "text"}:
             if not isinstance(record[field], list):
-                raise ValueError(
+                raise TypeError(
                     f"Field '{field}' in {record_id} must be a list."
                 )
 
@@ -154,7 +153,7 @@ def create_report(
         "evaluation_type": "synthetic_demonstration",
         "prediction_source": "evals/sample_predictions.json",
         "evaluation_timestamp": datetime.now(
-            timezone.utc
+            UTC
         ).isoformat(),
         "sample_count": results["sample_count"],
         "metrics": {

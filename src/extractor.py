@@ -93,7 +93,7 @@ Return JSON only. Do not include Markdown fences or explanations.
     def _validate_document(document: dict[str, Any]) -> None:
         """Check the minimum input fields required for extraction."""
         if not isinstance(document, dict):
-            raise ValueError("Document must be a dictionary.")
+            raise TypeError("Document must be a dictionary.")
 
         document_id = document.get("id")
         content = document.get("content")

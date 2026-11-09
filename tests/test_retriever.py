@@ -1,8 +1,8 @@
 """Tests for hybrid document and graph retrieval."""
 
+import networkx as nx
 import numpy as np
 import pytest
-import networkx as nx
 
 from src.graph_builder import KnowledgeGraphBuilder
 from src.graph_engine import GraphQueryEngine

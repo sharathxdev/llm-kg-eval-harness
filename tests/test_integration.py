@@ -2,6 +2,7 @@
 """End-to-end integration tests for the GraphRAG system."""
 
 import json
+from typing import ClassVar
 
 from src.pipeline import GraphRAGPipeline
 from src.retriever import (
@@ -22,7 +23,7 @@ class FakeChoice:
 
 
 class FakeResponse:
-    choices = [FakeChoice()]
+    choices: ClassVar[list[FakeChoice]] = [FakeChoice()]
 
 
 class FakeCompletions:

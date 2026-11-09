@@ -5,7 +5,6 @@ from typing import Any
 import networkx as nx
 
 
-
 class GraphQueryEngine:
     """
     Provides querying and traversal operations over a

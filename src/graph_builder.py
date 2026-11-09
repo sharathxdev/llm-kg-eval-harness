@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import networkx as nx
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class KnowledgeGraphBuilder:
     """Build a directed, multi-edge knowledge graph from JSON documents."""
 
-    ENTITY_TYPES: dict[str, EntityType] = {
+    ENTITY_TYPES: ClassVar[dict[str, EntityType]] = {
         "AuthService": EntityType.SERVICE,
         "PaymentGateway": EntityType.SERVICE,
         "PostgresCluster": EntityType.DATABASE,
@@ -271,11 +271,11 @@ class KnowledgeGraphBuilder:
             raise ValueError(f"Invalid JSON corpus: {exc}") from exc
 
         if not isinstance(documents, list):
-            raise ValueError("Corpus must contain a JSON list of documents.")
+            raise TypeError("Corpus must contain a JSON list of documents.")
 
         for index, document in enumerate(documents):
             if not isinstance(document, dict):
-                raise ValueError(f"Document at index {index} must be an object.")
+                raise TypeError(f"Document at index {index} must be an object.")
 
             required_fields = {"id", "title", "category", "content"}
 

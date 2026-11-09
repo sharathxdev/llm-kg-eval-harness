@@ -1,6 +1,6 @@
 
-import pytest
 import networkx as nx
+import pytest
 
 from src.graph_builder import KnowledgeGraphBuilder
 from src.graph_engine import GraphQueryEngine
