@@ -8,9 +8,10 @@ __pycache__/
 venv/
 env/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.*
+!.env.example
 
 # IDE
 .idea/
@@ -19,13 +20,20 @@ env/
 # macOS
 .DS_Store
 
-# Testing
+# Testing and coverage
 .pytest_cache/
+.ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
+
+# Logs
+*.log
 
 # Build
 build/
 dist/
 *.egg-info/
+
+# Evaluation reports
 evals/reports/
