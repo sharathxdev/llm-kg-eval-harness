@@ -4,17 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
-from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from src.config import get_openai_api_key, get_openai_model
 from src.models import ExtractionResult
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
 
 
 class LLMExtractionError(RuntimeError):
@@ -60,10 +58,7 @@ Return JSON only. Do not include Markdown fences or explanations.
         temperature: float = 0.0,
     ) -> None:
         self.client = client
-        self.model = model or os.getenv(
-            "OPENAI_MODEL",
-            "gpt-4o-mini",
-        )
+        self.model = get_openai_model(model)
         self.temperature = temperature
 
     def _get_client(self) -> Any:
@@ -71,7 +66,7 @@ Return JSON only. Do not include Markdown fences or explanations.
         if self.client is not None:
             return self.client
 
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = get_openai_api_key()
 
         if not api_key:
             raise LLMExtractionError(

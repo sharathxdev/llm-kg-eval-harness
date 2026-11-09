@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from typing import Any
 
-from dotenv import load_dotenv
-
+from src.config import get_openai_api_key, get_openai_model
 from src.retriever import HybridGraphRetriever
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
 
 
 class LLMGenerationError(RuntimeError):
@@ -50,10 +47,7 @@ Rules:
     ) -> None:
         self.retriever = retriever
         self.client = client
-        self.model = model or os.getenv(
-            "OPENAI_MODEL",
-            "gpt-4o-mini",
-        )
+        self.model = get_openai_model(model)
         self.temperature = temperature
         self.max_tokens = max_tokens
 
@@ -62,7 +56,7 @@ Rules:
         if self.client is not None:
             return self.client
 
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = get_openai_api_key()
 
         if not api_key:
             raise LLMGenerationError(
