@@ -238,3 +238,46 @@ def test_llm_api_failure_is_wrapped():
 
     with pytest.raises(LLMExtractionError, match="LLM extraction failed"):
         extractor.extract(DOCUMENT)
+
+
+def test_system_prompt_defines_only_supported_relationship_types():
+    prompt = LLMEntityExtractor.SYSTEM_PROMPT
+
+    supported_types = [
+        "DEPENDS_ON",
+        "AFFECTS",
+        "TRIGGERED_BY",
+        "GOVERNS",
+        "MANAGES",
+        "MONITORS",
+        "OPERATES",
+    ]
+
+    for relation_type in supported_types:
+        assert relation_type in prompt
+
+    assert "PUBLISHES_TO" not in prompt
+    assert "CONSUMES_FROM" not in prompt
+
+
+def test_system_prompt_defines_incident_relationship_direction():
+    prompt = LLMEntityExtractor.SYSTEM_PROMPT
+
+    assert "IncidentID -> AFFECTS -> AffectedEntityID" in prompt
+    assert "IncidentID -> TRIGGERED_BY -> CauseEntityID" in prompt
+    assert "Do not reverse an incident relationship" in prompt
+
+
+def test_system_prompt_requires_exact_entity_name_preservation():
+    prompt = LLMEntityExtractor.SYSTEM_PROMPT
+
+    assert "exact spelling, capitalization, and punctuation" in prompt
+    assert "including capitalization" in prompt
+
+
+def test_system_prompt_rejects_unsupported_relationship_inference():
+    prompt = LLMEntityExtractor.SYSTEM_PROMPT
+
+    assert "Do not invent entities, entity aliases, or relationships" in prompt
+    assert "Do not add relationships merely because they seem technically plausible" in prompt
+    assert "return an empty relations list" in prompt
