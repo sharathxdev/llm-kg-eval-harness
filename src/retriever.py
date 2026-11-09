@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
+from rank_bm25 import BM25Okapi
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -16,6 +17,11 @@ from src.graph_builder import KnowledgeGraphBuilder
 from src.graph_engine import GraphQueryEngine
 
 logger = logging.getLogger(__name__)
+
+
+def tokenize_bm25(text: str) -> list[str]:
+    """Tokenize text while preserving technical identifiers."""
+    return re.findall(r"[a-z0-9]+(?:[-_][a-z0-9]+)*", text.casefold())
 
 
 class EmbeddingProvider(Protocol):
@@ -117,7 +123,14 @@ class HybridGraphRetriever:
         graph_engine: GraphQueryEngine | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         documents: list[dict[str, Any]] | None = None,
+        retrieval_method: str = "tfidf",
     ) -> None:
+        if retrieval_method not in {"tfidf", "bm25"}:
+            raise ValueError(
+                "retrieval_method must be either 'tfidf' or 'bm25'."
+            )
+
+        self.retrieval_method = retrieval_method
         self.documents_path = Path(documents_path)
         self.embedding_provider = embedding_provider or AutoEmbeddingProvider()
 
@@ -140,6 +153,14 @@ class HybridGraphRetriever:
             for doc in self.documents
         ]
 
+        self.bm25_corpus = [
+            tokenize_bm25(text) for text in self.document_texts
+        ]
+        self.bm25_index = (
+            BM25Okapi(self.bm25_corpus)
+            if self.bm25_corpus
+            else None
+        )
         self.document_embeddings: Any = None
 
         if self.document_texts:
@@ -207,7 +228,10 @@ class HybridGraphRetriever:
         query: str,
         top_k: int,
     ) -> list[dict[str, Any]]:
-        """Rank documents by cosine similarity."""
+        """Rank documents using the configured retrieval method."""
+        if self.retrieval_method == "bm25":
+            return self._retrieve_documents_bm25(query, top_k)
+
         if not self.documents or self.document_embeddings is None:
             return []
 
@@ -233,6 +257,42 @@ class HybridGraphRetriever:
                     "category": document["category"],
                     "content": document["content"],
                     "similarity_score": score,
+                }
+            )
+
+        return results
+
+    def _retrieve_documents_bm25(
+        self,
+        query: str,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Rank documents using BM25 relevance scores."""
+        if not self.documents or self.bm25_index is None:
+            return []
+
+        query_tokens = tokenize_bm25(query)
+
+        if not query_tokens:
+            return []
+
+        scores = self.bm25_index.get_scores(query_tokens)
+        ranked_indices = np.argsort(scores)[::-1][:top_k]
+
+        results = []
+
+        for index in ranked_indices:
+            document = self.documents[int(index)]
+            score = float(scores[index])
+
+            results.append(
+                {
+                    "id": document["id"],
+                    "title": document["title"],
+                    "category": document["category"],
+                    "content": document["content"],
+                    "retrieval_score": score,
+                    "retrieval_method": "bm25",
                 }
             )
 

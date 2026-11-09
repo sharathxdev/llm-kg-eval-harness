@@ -1,0 +1,62 @@
+[
+  {
+    "id": "RET-001",
+    "query": "Explain how AuthService authenticates requests from the API Gateway and OrderService, and how PostgresCluster and RedisCache store identity and session information.",
+    "expected_doc_ids": ["DOC-001", "DOC-002", "DOC-011"],
+    "expected_graph_entities": ["AuthService", "API Gateway", "OrderService", "PostgresCluster", "RedisCache"]
+  },
+  {
+    "id": "RET-002",
+    "query": "Explain how PaymentGateway processes transactions with OrderService, depends on AuthService and RedisCache, persists records in PostgresCluster, and sends events to NotificationService through KafkaCluster.",
+    "expected_doc_ids": ["DOC-003", "DOC-001", "DOC-008", "DOC-015", "DOC-007"],
+    "expected_graph_entities": ["PaymentGateway", "OrderService", "AuthService", "RedisCache", "PostgresCluster", "NotificationService", "KafkaCluster"]
+  },
+  {
+    "id": "RET-003",
+    "query": "What happened during Incident-304 when RedisCache failed, how did it affect AuthService and the API Gateway, and how did MonitoringService detect the problem?",
+    "expected_doc_ids": ["DOC-005", "DOC-013", "DOC-011"],
+    "expected_graph_entities": ["Incident-304", "RedisCache", "AuthService", "API Gateway", "MonitoringService"]
+  },
+  {
+    "id": "RET-004",
+    "query": "Describe PostgresCluster high availability, replication, database failover, and how AuthService, PaymentGateway, OrderService, InventoryService, and MonitoringService depend on the database.",
+    "expected_doc_ids": ["DOC-004", "DOC-012", "DOC-001", "DOC-003", "DOC-007", "DOC-009"],
+    "expected_graph_entities": ["PostgresCluster", "AuthService", "PaymentGateway", "OrderService", "InventoryService", "MonitoringService"]
+  },
+  {
+    "id": "RET-005",
+    "query": "How does KafkaCluster distribute events to NotificationService and InventoryService, and how do OrderService and MonitoringService handle event processing and consumer delays?",
+    "expected_doc_ids": ["DOC-007", "DOC-008", "DOC-009", "DOC-010", "DOC-015"],
+    "expected_graph_entities": ["KafkaCluster", "NotificationService", "InventoryService", "OrderService", "MonitoringService"]
+  },
+  {
+    "id": "RET-006",
+    "query": "Explain how the API Gateway routes requests to AuthService, OrderService, and PaymentGateway, including rate limiting, health checks, and MonitoringService metrics.",
+    "expected_doc_ids": ["DOC-001", "DOC-011", "DOC-015"],
+    "expected_graph_entities": ["API Gateway", "AuthService", "OrderService", "PaymentGateway", "MonitoringService"]
+  },
+  {
+    "id": "RET-007",
+    "query": "What emergency access controls does IAM-Failover-Policy define for AuthService and PaymentGateway, including temporary credentials, least privilege, audit logging, and Incident-304 recovery?",
+    "expected_doc_ids": ["DOC-006", "DOC-014", "DOC-012"],
+    "expected_graph_entities": ["IAM-Failover-Policy", "AuthService", "PaymentGateway", "Incident-304"]
+  },
+  {
+    "id": "RET-008",
+    "query": "Explain how InventoryService manages stock, coordinates with OrderService, stores inventory in PostgresCluster, publishes events to KafkaCluster, and is monitored by MonitoringService.",
+    "expected_doc_ids": ["DOC-009", "DOC-007", "DOC-010", "DOC-015"],
+    "expected_graph_entities": ["InventoryService", "OrderService", "PostgresCluster", "KafkaCluster", "MonitoringService"]
+  },
+  {
+    "id": "RET-009",
+    "query": "What infrastructure does MonitoringService observe, including AuthService, PaymentGateway, OrderService, InventoryService, RedisCache, PostgresCluster, KafkaCluster, and API Gateway?",
+    "expected_doc_ids": ["DOC-013", "DOC-002", "DOC-004", "DOC-009", "DOC-011", "DOC-010"],
+    "expected_graph_entities": ["MonitoringService", "AuthService", "PaymentGateway", "OrderService", "InventoryService", "RedisCache", "PostgresCluster", "KafkaCluster", "API Gateway"]
+  },
+  {
+    "id": "RET-010",
+    "query": "Trace the end-to-end customer workflow through API Gateway, AuthService, OrderService, PaymentGateway, InventoryService, PostgresCluster, KafkaCluster, NotificationService, and MonitoringService, including the Incident-304 failure scenario.",
+    "expected_doc_ids": ["DOC-015", "DOC-001", "DOC-007", "DOC-003", "DOC-008", "DOC-009", "DOC-013", "DOC-005"],
+    "expected_graph_entities": ["API Gateway", "AuthService", "OrderService", "PaymentGateway", "InventoryService", "PostgresCluster", "KafkaCluster", "NotificationService", "MonitoringService", "Incident-304"]
+  }
+]

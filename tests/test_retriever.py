@@ -179,3 +179,77 @@ def test_missing_entity_relationships_do_not_crash(retriever):
     )
 
     assert isinstance(result["graph_context"], list)
+
+
+def test_tfidf_is_the_default_retrieval_method(retriever):
+    assert retriever.retrieval_method == "tfidf"
+
+
+def test_bm25_retrieval_method_can_be_selected(retriever):
+    bm25_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="bm25",
+    )
+
+    assert bm25_retriever.retrieval_method == "bm25"
+
+
+def test_invalid_retrieval_method_raises_error():
+    with pytest.raises(
+        ValueError,
+        match="retrieval_method must be either 'tfidf' or 'bm25'",
+    ):
+        HybridGraphRetriever(
+            documents=[],
+            graph_engine=GraphQueryEngine(nx.MultiDiGraph()),
+            embedding_provider=MockEmbeddingProvider(),
+            retrieval_method="invalid",
+        )
+
+
+def test_bm25_returns_expected_document_fields(retriever):
+    bm25_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="bm25",
+    )
+
+    result = bm25_retriever.retrieve(
+        "PaymentGateway payment transactions",
+        top_k=2,
+    )
+
+    chunks = result["retrieved_chunks"]
+
+    assert len(chunks) == 2
+    assert chunks[0]["id"] == "DOC-001"
+    assert chunks[0]["retrieval_method"] == "bm25"
+    assert "retrieval_score" in chunks[0]
+    assert "similarity_score" not in chunks[0]
+
+
+def test_bm25_preserves_graph_retrieval(retriever):
+    bm25_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="bm25",
+    )
+
+    result = bm25_retriever.retrieve(
+        "PaymentGateway database failure",
+        hops=2,
+    )
+
+    entity_names = [
+        entity["name"] for entity in result["graph_entities"]
+    ]
+
+    assert "PaymentGateway" in entity_names
+    assert len(result["graph_context"]) > 0
