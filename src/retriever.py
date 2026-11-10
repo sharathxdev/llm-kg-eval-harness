@@ -15,6 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from src.data_processor import DataProcessor
 from src.graph_builder import KnowledgeGraphBuilder
 from src.graph_engine import GraphQueryEngine
+from src.graph_loader import load_knowledge_graph
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class HybridGraphRetriever:
         embedding_provider: EmbeddingProvider | None = None,
         documents: list[dict[str, Any]] | None = None,
         retrieval_method: str = "tfidf",
+        graph_path: str | Path | None = None,
     ) -> None:
         if retrieval_method not in {"tfidf", "bm25"}:
             raise ValueError(
@@ -141,12 +143,20 @@ class HybridGraphRetriever:
         else:
             self.documents = DataProcessor().process_documents(documents)
 
-        if graph_engine is None:
+        if graph_engine is not None and graph_path is not None:
+            raise ValueError(
+                "Provide either graph_engine or graph_path, not both."
+            )
+
+        if graph_engine is not None:
+            self.graph_engine = graph_engine
+        elif graph_path is not None:
+            graph = load_knowledge_graph(graph_path)
+            self.graph_engine = GraphQueryEngine(graph)
+        else:
             builder = KnowledgeGraphBuilder()
             graph = builder.build_from_corpus(str(self.documents_path))
             self.graph_engine = GraphQueryEngine(graph)
-        else:
-            self.graph_engine = graph_engine
 
         self.document_texts = [
             f"{doc['title']}. {doc['category']}. {doc['content']}"

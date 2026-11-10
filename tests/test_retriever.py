@@ -253,3 +253,120 @@ def test_bm25_preserves_graph_retrieval(retriever):
 
     assert "PaymentGateway" in entity_names
     assert len(result["graph_context"]) > 0
+
+
+def test_retriever_loads_graph_from_json(
+    tmp_path,
+    valid_graph_data=None,
+):
+    import json
+
+    graph_data = {
+        "directed": True,
+        "graph_type": "MultiDiGraph",
+        "nodes": [
+            {
+                "id": "AuthService",
+                "name": "AuthService",
+                "entity_type": "SERVICE",
+                "description": "Authentication service",
+                "metadata": {},
+            },
+            {
+                "id": "PaymentGateway",
+                "name": "PaymentGateway",
+                "entity_type": "SERVICE",
+                "description": "Payment service",
+                "metadata": {},
+            },
+        ],
+        "edges": [
+            {
+                "source_id": "PaymentGateway",
+                "target_id": "AuthService",
+                "relation_type": "DEPENDS_ON",
+                "weight": 1.0,
+            }
+        ],
+    }
+
+    graph_path = tmp_path / "llm_graph.json"
+    graph_path.write_text(
+        json.dumps(graph_data),
+        encoding="utf-8",
+    )
+
+    documents = [
+        {
+            "id": "DOC-001",
+            "title": "Payment Architecture",
+            "category": "Architecture",
+            "content": "PaymentGateway depends on AuthService.",
+        }
+    ]
+
+    retriever = HybridGraphRetriever(
+        graph_path=graph_path,
+        documents=documents,
+        embedding_provider=MockEmbeddingProvider(),
+    )
+
+    result = retriever.retrieve("PaymentGateway")
+
+    assert "PaymentGateway" in [
+        entity["name"] for entity in result["graph_entities"]
+    ]
+
+    assert (
+        "PaymentGateway --[DEPENDS_ON]--> AuthService"
+        in result["graph_context"]
+    )
+
+
+def test_retriever_rejects_graph_engine_and_graph_path_together(
+    tmp_path,
+):
+    graph_engine = GraphQueryEngine(nx.MultiDiGraph())
+
+    with pytest.raises(
+        ValueError,
+        match="either graph_engine or graph_path",
+    ):
+        HybridGraphRetriever(
+            graph_engine=graph_engine,
+            graph_path=tmp_path / "graph.json",
+            documents=[],
+            embedding_provider=MockEmbeddingProvider(),
+        )
+
+
+def test_retriever_default_graph_behavior_is_preserved(
+    tmp_path,
+):
+    import json
+
+    documents = [
+        {
+            "id": "DOC-001",
+            "title": "Payment Architecture",
+            "category": "Architecture",
+            "content": (
+                "PaymentGateway depends on PostgresCluster "
+                "for payment transactions."
+            ),
+        }
+    ]
+
+    documents_path = tmp_path / "documents.json"
+    documents_path.write_text(
+        json.dumps(documents),
+        encoding="utf-8",
+    )
+
+    retriever = HybridGraphRetriever(
+        documents_path=documents_path,
+        embedding_provider=MockEmbeddingProvider(),
+    )
+
+    assert retriever.graph_engine.graph.has_node("PaymentGateway")
+    assert retriever.graph_engine.graph.has_node("PostgresCluster")
