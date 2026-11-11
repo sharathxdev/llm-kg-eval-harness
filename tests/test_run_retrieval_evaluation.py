@@ -63,10 +63,14 @@ def test_invalid_hops_raise_error(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("retrieval_method", "expected_report_name"),
+    (
+        "retrieval_method",
+        "expected_report_name",
+        "expected_embedding_provider",
+    ),
     [
-        ("tfidf", "retrieval_report.json"),
-        ("bm25", "retrieval_report_bm25.json"),
+        ("tfidf", "retrieval_report_k3.json", "TF-IDF"),
+        ("bm25", "retrieval_report_bm25_k3.json", None),
     ],
 )
 def test_runner_generates_retrieval_report(
@@ -74,6 +78,7 @@ def test_runner_generates_retrieval_report(
     monkeypatch,
     retrieval_method,
     expected_report_name,
+    expected_embedding_provider,
 ):
     dataset = [
         {
@@ -147,8 +152,12 @@ def test_runner_generates_retrieval_report(
     assert report["configuration"]["query_count"] == 1
     assert report["summary"]["document_retrieval"]["recall_at_3"] == 1.0
     assert report["summary"]["graph_entities"]["f1_score"] == 1.0
-    assert report["metadata"]["embedding_provider"] == "TF-IDF"
-    assert report["metadata"]["retrieval_method"] == retrieval_method.upper()
+    assert (
+        report["metadata"]["embedding_provider"]
+        == expected_embedding_provider
+    )
+    expected_method = "TF-IDF" if retrieval_method == "tfidf" else "BM25"
+    assert report["metadata"]["retrieval_method"] == expected_method
     assert report["metadata"]["document_count"] == 1
     assert report["metadata"]["graph_relationship_count"] == 2
 

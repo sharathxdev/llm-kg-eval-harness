@@ -111,9 +111,15 @@ def run_retrieval_evaluation(
 
     golden_dataset = load_golden_dataset()
 
+    embedding_provider = (
+        TfidfEmbeddingProvider()
+        if retrieval_method == "tfidf"
+        else None
+    )
+
     retriever = HybridGraphRetriever(
         documents_path=DOCUMENTS_PATH,
-        embedding_provider=TfidfEmbeddingProvider(),
+        embedding_provider=embedding_provider,
         retrieval_method=retrieval_method,
     )
 
@@ -190,8 +196,12 @@ def run_retrieval_evaluation(
 
     report["metadata"] = {
         "evaluation_type": "Knowledge Graph RAG retrieval",
-        "retrieval_method": retrieval_method.upper(),
-        "embedding_provider": "TF-IDF",
+        "retrieval_method": (
+            "TF-IDF" if retrieval_method == "tfidf" else "BM25"
+        ),
+        "embedding_provider": (
+            "TF-IDF" if retrieval_method == "tfidf" else None
+        ),
         "golden_dataset": display_path(GOLDEN_DATASET_PATH),
         "documents_path": display_path(DOCUMENTS_PATH),
         "document_count": len(retriever.documents),
@@ -200,12 +210,13 @@ def run_retrieval_evaluation(
         "hops": hops,
     }
 
-    report_path = REPORT_PATH
+    report_suffix = (
+        f"_bm25_k{k}" if retrieval_method == "bm25" else f"_k{k}"
+    )
 
-    if retrieval_method == "bm25":
-        report_path = REPORT_PATH.with_name(
-            f"{REPORT_PATH.stem}_bm25{REPORT_PATH.suffix}"
-        )
+    report_path = REPORT_PATH.with_name(
+        f"{REPORT_PATH.stem}{report_suffix}{REPORT_PATH.suffix}"
+    )
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
 

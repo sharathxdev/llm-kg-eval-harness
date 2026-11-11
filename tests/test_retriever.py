@@ -233,6 +233,34 @@ def test_bm25_returns_expected_document_fields(retriever):
     assert "similarity_score" not in chunks[0]
 
 
+def test_bm25_does_not_initialize_embedding_provider(retriever):
+    class UnusedEmbeddingProvider:
+        def fit(self, texts):
+            raise AssertionError("BM25 must not fit embeddings.")
+
+        def encode(self, texts):
+            raise AssertionError("BM25 must not encode embeddings.")
+
+    bm25_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=UnusedEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="bm25",
+    )
+
+    assert bm25_retriever.embedding_provider is None
+    assert bm25_retriever.document_embeddings is None
+
+    result = bm25_retriever.retrieve(
+        "PaymentGateway payment transactions",
+        top_k=2,
+    )
+
+    assert result["retrieved_chunks"]
+    assert result["retrieved_chunks"][0]["id"] == "DOC-001"
+
+
 def test_bm25_preserves_graph_retrieval(retriever):
     bm25_retriever = HybridGraphRetriever(
         documents_path=retriever.documents_path,

@@ -134,7 +134,13 @@ class HybridGraphRetriever:
 
         self.retrieval_method = retrieval_method
         self.documents_path = Path(documents_path)
-        self.embedding_provider = embedding_provider or AutoEmbeddingProvider()
+
+        # BM25 is a lexical ranking method and does not require embeddings.
+        self.embedding_provider = (
+            embedding_provider or AutoEmbeddingProvider()
+            if retrieval_method == "tfidf"
+            else None
+        )
 
         if documents is None:
             self.documents = DataProcessor().load_documents(
@@ -173,7 +179,12 @@ class HybridGraphRetriever:
         )
         self.document_embeddings: Any = None
 
-        if self.document_texts:
+        if self.retrieval_method == "tfidf" and self.document_texts:
+            if self.embedding_provider is None:
+                raise RuntimeError(
+                    "TF-IDF retrieval requires an embedding provider."
+                )
+
             self.embedding_provider.fit(self.document_texts)
             self.document_embeddings = self.embedding_provider.encode(
                 self.document_texts
@@ -242,7 +253,11 @@ class HybridGraphRetriever:
         if self.retrieval_method == "bm25":
             return self._retrieve_documents_bm25(query, top_k)
 
-        if not self.documents or self.document_embeddings is None:
+        if (
+            not self.documents
+            or self.document_embeddings is None
+            or self.embedding_provider is None
+        ):
             return []
 
         query_embedding = self.embedding_provider.encode([query])
