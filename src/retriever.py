@@ -126,19 +126,28 @@ class HybridGraphRetriever:
         documents: list[dict[str, Any]] | None = None,
         retrieval_method: str = "tfidf",
         graph_path: str | Path | None = None,
+        rrf_constant: int = 60,
     ) -> None:
-        if retrieval_method not in {"tfidf", "bm25"}:
+        if retrieval_method not in {"tfidf", "bm25", "rrf"}:
             raise ValueError(
-                "retrieval_method must be either 'tfidf' or 'bm25'."
+                "retrieval_method must be either 'tfidf' or 'bm25' (or 'rrf')."
             )
+
+        if (
+            not isinstance(rrf_constant, int)
+            or isinstance(rrf_constant, bool)
+            or rrf_constant < 1
+        ):
+            raise ValueError("rrf_constant must be a positive integer.")
 
         self.retrieval_method = retrieval_method
         self.documents_path = Path(documents_path)
+        self.rrf_constant = rrf_constant
 
-        # BM25 is a lexical ranking method and does not require embeddings.
+        # TF-IDF and RRF require an embedding provider.
         self.embedding_provider = (
             embedding_provider or AutoEmbeddingProvider()
-            if retrieval_method == "tfidf"
+            if retrieval_method in {"tfidf", "rrf"}
             else None
         )
 
@@ -179,10 +188,10 @@ class HybridGraphRetriever:
         )
         self.document_embeddings: Any = None
 
-        if self.retrieval_method == "tfidf" and self.document_texts:
+        if self.retrieval_method in {"tfidf", "rrf"} and self.document_texts:
             if self.embedding_provider is None:
                 raise RuntimeError(
-                    "TF-IDF retrieval requires an embedding provider."
+                    "TF-IDF/RRF retrieval requires an embedding provider."
                 )
 
             self.embedding_provider.fit(self.document_texts)
@@ -253,6 +262,17 @@ class HybridGraphRetriever:
         if self.retrieval_method == "bm25":
             return self._retrieve_documents_bm25(query, top_k)
 
+        if self.retrieval_method == "rrf":
+            return self._retrieve_documents_rrf(query, top_k)
+
+        return self._retrieve_documents_tfidf(query, top_k)
+
+    def _retrieve_documents_tfidf(
+        self,
+        query: str,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Rank documents using embedding cosine similarity."""
         if (
             not self.documents
             or self.document_embeddings is None
@@ -282,6 +302,98 @@ class HybridGraphRetriever:
                     "category": document["category"],
                     "content": document["content"],
                     "similarity_score": score,
+                }
+            )
+
+        return results
+
+    def _retrieve_documents_rrf(
+        self,
+        query: str,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Fuse embedding and BM25 rankings using Reciprocal Rank Fusion.
+
+        RRF combines document ranks rather than raw scores because cosine
+        similarity and BM25 scores use different numerical scales.
+
+        RRF score = sum(1 / (rrf_constant + rank)), with ranks starting at 1.
+        """
+        if not self.documents:
+            return []
+
+        # Obtain candidate rankings independently from both retrievers.
+        embedding_results = self._retrieve_documents_tfidf(query, top_k)
+        bm25_results = self._retrieve_documents_bm25(query, top_k)
+
+        fused: dict[str, dict[str, Any]] = {}
+
+        rankings = (
+            ("embedding", embedding_results, "similarity_score"),
+            ("bm25", bm25_results, "retrieval_score"),
+        )
+
+        for method, ranking, score_key in rankings:
+            for rank, document in enumerate(ranking, start=1):
+                score = float(document.get(score_key, 0.0))
+
+                # Skip zero-score documents without changing original ranks.
+                # Negative BM25 scores can still have a meaningful ranking.
+                if score == 0.0:
+                    continue
+
+                document_id = str(document["id"])
+
+                entry = fused.setdefault(
+                    document_id,
+                    {
+                        "document": document,
+                        "rrf_score": 0.0,
+                        "embedding_rank": None,
+                        "bm25_rank": None,
+                        "embedding_score": None,
+                        "bm25_score": None,
+                    },
+                )
+
+                entry["rrf_score"] += (
+                    1.0 / (self.rrf_constant + rank)
+                )
+
+                entry[f"{method}_rank"] = rank
+                entry[f"{method}_score"] = score
+
+        if not fused:
+            return []
+
+        # Sort by fused score and then document ID for deterministic ties.
+        ranked_results = sorted(
+            fused.values(),
+            key=lambda item: (
+                -item["rrf_score"],
+                str(item["document"]["id"]),
+            ),
+        )
+
+        results = []
+
+        for item in ranked_results[:top_k]:
+            document = item["document"]
+            score = round(float(item["rrf_score"]), 10)
+
+            results.append(
+                {
+                    "id": document["id"],
+                    "title": document["title"],
+                    "category": document["category"],
+                    "content": document["content"],
+                    "retrieval_score": score,
+                    "retrieval_method": "rrf",
+                    "embedding_rank": item["embedding_rank"],
+                    "bm25_rank": item["bm25_rank"],
+                    "embedding_score": item["embedding_score"],
+                    "bm25_score": item["bm25_score"],
+                    "rrf_constant": self.rrf_constant,
                 }
             )
 

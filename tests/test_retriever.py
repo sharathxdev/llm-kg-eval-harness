@@ -398,3 +398,186 @@ def test_retriever_default_graph_behavior_is_preserved(
 
     assert retriever.graph_engine.graph.has_node("PaymentGateway")
     assert retriever.graph_engine.graph.has_node("PostgresCluster")
+
+
+def test_rrf_retrieval_method_can_be_selected(retriever):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="rrf",
+    )
+
+    assert rrf_retriever.retrieval_method == "rrf"
+    assert rrf_retriever.embedding_provider is not None
+    assert rrf_retriever.document_embeddings is not None
+
+
+def test_rrf_returns_expected_document_fields(retriever):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="rrf",
+    )
+
+    result = rrf_retriever.retrieve(
+        "PaymentGateway payment transactions",
+        top_k=3,
+    )
+
+    chunks = result["retrieved_chunks"]
+
+    assert len(chunks) > 0
+    assert chunks[0]["id"] == "DOC-001"
+    assert chunks[0]["retrieval_method"] == "rrf"
+    assert "retrieval_score" in chunks[0]
+    assert "embedding_rank" in chunks[0]
+    assert "bm25_rank" in chunks[0]
+    assert "embedding_score" in chunks[0]
+    assert "bm25_score" in chunks[0]
+    assert chunks[0]["rrf_constant"] == 60
+
+
+def test_rrf_score_is_calculated_from_ranks(retriever):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="rrf",
+        rrf_constant=60,
+    )
+
+    results = rrf_retriever._retrieve_documents_rrf(
+        "PaymentGateway payment transactions",
+        top_k=3,
+    )
+
+    doc_001 = next(
+        document
+        for document in results
+        if document["id"] == "DOC-001"
+    )
+
+    expected_score = sum(
+        1.0 / (60 + rank)
+        for rank in (
+            doc_001["embedding_rank"],
+            doc_001["bm25_rank"],
+        )
+        if rank is not None
+    )
+
+    assert doc_001["retrieval_score"] == pytest.approx(
+        round(expected_score, 10)
+    )
+
+
+def test_rrf_combines_embedding_and_bm25_rankings(retriever):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="rrf",
+    )
+
+    results = rrf_retriever._retrieve_documents_rrf(
+        "PaymentGateway payment transactions",
+        top_k=3,
+    )
+
+    assert results
+
+    assert any(
+        document["embedding_rank"] is not None
+        for document in results
+    )
+
+    assert any(
+        document["bm25_rank"] is not None
+        for document in results
+    )
+
+
+def test_rrf_returns_empty_results_when_no_documents_are_available(retriever):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=[],
+        retrieval_method="rrf",
+    )
+
+    results = rrf_retriever._retrieve_documents_rrf(
+        "payment transactions",
+        top_k=3,
+    )
+
+    assert results == []
+
+
+@pytest.mark.parametrize("invalid_constant", [0, -1, 1.5, True, "60"])
+def test_rrf_rejects_invalid_constant(retriever, invalid_constant):
+    with pytest.raises(
+        ValueError,
+        match="rrf_constant must be a positive integer",
+    ):
+        HybridGraphRetriever(
+            documents_path=retriever.documents_path,
+            graph_engine=retriever.graph_engine,
+            embedding_provider=MockEmbeddingProvider(),
+            documents=retriever.documents,
+            retrieval_method="rrf",
+            rrf_constant=invalid_constant,
+        )
+
+
+def test_rrf_keeps_negative_bm25_scores_and_original_rank(
+    retriever,
+    monkeypatch,
+):
+    rrf_retriever = HybridGraphRetriever(
+        documents_path=retriever.documents_path,
+        graph_engine=retriever.graph_engine,
+        embedding_provider=MockEmbeddingProvider(),
+        documents=retriever.documents,
+        retrieval_method="rrf",
+    )
+
+    monkeypatch.setattr(
+        rrf_retriever,
+        "_retrieve_documents_tfidf",
+        lambda query, top_k: [],
+    )
+
+    monkeypatch.setattr(
+        rrf_retriever,
+        "_retrieve_documents_bm25",
+        lambda query, top_k: [
+            {
+                **retriever.documents[2],
+                "retrieval_score": 0.0,
+                "retrieval_method": "bm25",
+            },
+            {
+                **retriever.documents[0],
+                "retrieval_score": -0.5,
+                "retrieval_method": "bm25",
+            },
+        ],
+    )
+
+    results = rrf_retriever._retrieve_documents_rrf(
+        "payment transactions",
+        top_k=3,
+    )
+
+    assert len(results) == 1
+    assert results[0]["id"] == "DOC-001"
+    assert results[0]["bm25_rank"] == 2
+    assert results[0]["bm25_score"] == -0.5
+    assert results[0]["retrieval_score"] == pytest.approx(1 / 62)
