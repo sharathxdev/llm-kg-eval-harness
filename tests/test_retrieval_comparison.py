@@ -88,6 +88,11 @@ def test_build_comparison_identifies_winners_and_ties(
             5: "bm25_k5.json",
             10: "bm25_k10.json",
         },
+        "RRF": {
+            3: "rrf_k3.json",
+            5: "rrf_k5.json",
+            10: "rrf_k10.json",
+        },
     }
 
     report_values = {
@@ -97,6 +102,9 @@ def test_build_comparison_identifies_winners_and_ties(
         "bm25_k5.json": create_report(5, 0.6, 0.7, 0.8),
         "tfidf_k10.json": create_report(10, 0.4, 0.9, 0.9),
         "bm25_k10.json": create_report(10, 0.4, 0.8, 0.9),
+        "rrf_k3.json": create_report(3, 0.9, 0.5, 0.95),
+        "rrf_k5.json": create_report(5, 0.8, 0.6, 0.85),
+        "rrf_k10.json": create_report(10, 0.3, 0.95, 0.7),
     }
 
     for filename, report in report_values.items():
@@ -114,9 +122,19 @@ def test_build_comparison_identifies_winners_and_ties(
 
     result = comparison.build_comparison()
 
+    assert result["metadata"]["methods"] == [
+        "TF-IDF",
+        "BM25",
+        "RRF",
+    ]
+
     assert (
         result["comparisons"][3]["precision_at_3"]["winner"]
-        == "Tie"
+        == "RRF"
+    )
+    assert (
+        result["comparisons"][3]["precision_at_3"]["rrf"]
+        == 0.9
     )
     assert (
         result["comparisons"][3]["recall_at_3"]["winner"]
@@ -128,6 +146,14 @@ def test_build_comparison_identifies_winners_and_ties(
     )
     assert (
         result["comparisons"][10]["precision_at_10"]["winner"]
+        == "Tie"
+    )
+    assert (
+        result["comparisons"][10]["recall_at_10"]["winner"]
+        == "RRF"
+    )
+    assert (
+        result["comparisons"][3]["graph_entity_f1"]["winner"]
         == "Tie"
     )
 
@@ -157,3 +183,25 @@ def test_save_comparison_report(tmp_path, monkeypatch):
         output_path.read_text(encoding="utf-8")
     )
     assert saved_data == report
+
+
+def test_build_comparison_rejects_inconsistent_k_values(monkeypatch):
+    monkeypatch.setattr(
+        comparison,
+        "BENCHMARK_REPORTS",
+        {
+            "TF-IDF": {
+                3: "tfidf_k3.json",
+                5: "tfidf_k5.json",
+            },
+            "BM25": {
+                3: "bm25_k3.json",
+            },
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="same non-empty K values",
+    ):
+        comparison.build_comparison()

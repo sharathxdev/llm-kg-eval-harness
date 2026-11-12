@@ -1,4 +1,4 @@
-"""Compare TF-IDF and BM25 retrieval evaluation reports."""
+"""Compare TF-IDF, BM25, and RRF retrieval evaluation reports."""
 
 import json
 import logging
@@ -22,6 +22,11 @@ BENCHMARK_REPORTS = {
         3: "retrieval_evaluation_report_bm25_k3.json",
         5: "retrieval_evaluation_report_bm25_k5.json",
         10: "retrieval_evaluation_report_bm25_k10.json",
+    },
+    "RRF": {
+        3: "retrieval_evaluation_report_rrf_k3.json",
+        5: "retrieval_evaluation_report_rrf_k5.json",
+        10: "retrieval_evaluation_report_rrf_k10.json",
     },
 }
 
@@ -118,60 +123,112 @@ def extract_metrics(
 
 
 def build_comparison() -> dict[str, Any]:
-    """Compare all configured TF-IDF and BM25 benchmark reports."""
+    """Compare all configured retrieval methods across their K values."""
+
+    if not BENCHMARK_REPORTS:
+        raise ValueError("At least one benchmark method must be configured.")
+
+    k_value_sets = [
+        set(benchmarks)
+        for benchmarks in BENCHMARK_REPORTS.values()
+    ]
+
+    if not k_value_sets[0] or any(
+        values != k_value_sets[0]
+        for values in k_value_sets[1:]
+    ):
+        raise ValueError(
+            "All retrieval methods must define the same non-empty K values."
+        )
+
+    k_values = sorted(k_value_sets[0])
 
     results = {}
+    reference_report = None
 
     for method, benchmarks in BENCHMARK_REPORTS.items():
         results[method] = {}
 
-        for k, filename in benchmarks.items():
+        for k in k_values:
+            filename = benchmarks[k]
             report = load_report(REPORTS_DIR / filename)
+
+            if reference_report is None:
+                reference_report = report
+
             results[method][k] = {
                 "source_report": filename,
                 "metrics": extract_metrics(report, k),
             }
 
+    # Create stable dictionary keys while preserving display labels.
+    method_keys = {
+        method: method.lower().replace("-", "")
+        for method in BENCHMARK_REPORTS
+    }
+
     comparisons = {}
 
-    for k in (3, 5, 10):
+    for k in k_values:
         comparisons[k] = {}
 
-        for metric in METRICS:
-            metric_key = f"{metric}_at_{k}"
+        metric_keys = [
+            f"{metric}_at_{k}"
+            for metric in METRICS
+        ]
+        metric_keys.append("graph_entity_f1")
 
-            tfidf_value = results["TF-IDF"][k]["metrics"][
-                metric_key
-            ]
-            bm25_value = results["BM25"][k]["metrics"][
-                metric_key
+        for metric_key in metric_keys:
+            values = {
+                method_keys[method]: results[method][k]["metrics"][
+                    metric_key
+                ]
+                for method in BENCHMARK_REPORTS
+            }
+
+            best_value = max(values.values())
+
+            winners = [
+                method
+                for method, key in method_keys.items()
+                if values[key] == best_value
             ]
 
-            if tfidf_value > bm25_value:
-                winner = "TF-IDF"
-            elif bm25_value > tfidf_value:
-                winner = "BM25"
-            else:
-                winner = "Tie"
+            winner = winners[0] if len(winners) == 1 else "Tie"
 
             comparisons[k][metric_key] = {
-                "tfidf": tfidf_value,
-                "bm25": bm25_value,
+                **values,
                 "winner": winner,
             }
 
+    configuration = (
+        reference_report.get("configuration", {})
+        if reference_report is not None
+        else {}
+    )
+    reference_metadata = (
+        reference_report.get("metadata", {})
+        if reference_report is not None
+        else {}
+    )
+
+    if not isinstance(configuration, dict):
+        configuration = {}
+
+    if not isinstance(reference_metadata, dict):
+        reference_metadata = {}
+
     return {
         "metadata": {
-            "comparison_type": "TF-IDF vs BM25 retrieval",
-            "methods": ["TF-IDF", "BM25"],
-            "k_values": [3, 5, 10],
-            "query_count": 10,
-            "document_count": 15,
+            "comparison_type": "Multi-method retrieval comparison",
+            "methods": list(BENCHMARK_REPORTS),
+            "k_values": k_values,
+            "query_count": configuration.get("query_count", 10),
+            "document_count": reference_metadata.get("document_count", 15),
         },
         "results": results,
         "comparisons": comparisons,
     }
-
 
 def save_comparison_report(
     comparison: dict[str, Any],
@@ -202,14 +259,22 @@ def main() -> None:
 
     print("\n========== RETRIEVAL COMPARISON ==========")
 
+    method_keys = {
+        method: method.lower().replace("-", "")
+        for method in comparison["metadata"]["methods"]
+    }
+
     for k, metrics in comparison["comparisons"].items():
         print(f"\nK = {k}")
 
         for metric, values in metrics.items():
+            method_values = ", ".join(
+                f"{method}={values[key]:.4f}"
+                for method, key in method_keys.items()
+            )
+
             print(
-                f"{metric}: "
-                f"TF-IDF={values['tfidf']:.4f}, "
-                f"BM25={values['bm25']:.4f}, "
+                f"{metric}: {method_values}, "
                 f"Winner={values['winner']}"
             )
 

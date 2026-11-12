@@ -104,16 +104,16 @@ def run_retrieval_evaluation(
     if not isinstance(hops, int) or isinstance(hops, bool) or hops < 0:
         raise ValueError("Hops must be a non-negative integer.")
 
-    if retrieval_method not in {"tfidf", "bm25"}:
+    if retrieval_method not in {"tfidf", "bm25", "rrf"}:
         raise ValueError(
-            "retrieval_method must be either 'tfidf' or 'bm25'."
+            "retrieval_method must be one of 'tfidf', 'bm25', or 'rrf'."
         )
 
     golden_dataset = load_golden_dataset()
 
     embedding_provider = (
         TfidfEmbeddingProvider()
-        if retrieval_method == "tfidf"
+        if retrieval_method in {"tfidf", "rrf"}
         else None
     )
 
@@ -196,11 +196,13 @@ def run_retrieval_evaluation(
 
     report["metadata"] = {
         "evaluation_type": "Knowledge Graph RAG retrieval",
-        "retrieval_method": (
-            "TF-IDF" if retrieval_method == "tfidf" else "BM25"
-        ),
+        "retrieval_method": {
+            "tfidf": "TF-IDF",
+            "bm25": "BM25",
+            "rrf": "RRF",
+        }[retrieval_method],
         "embedding_provider": (
-            "TF-IDF" if retrieval_method == "tfidf" else None
+            "TF-IDF" if retrieval_method in {"tfidf", "rrf"} else None
         ),
         "golden_dataset": display_path(GOLDEN_DATASET_PATH),
         "documents_path": display_path(DOCUMENTS_PATH),
@@ -210,9 +212,11 @@ def run_retrieval_evaluation(
         "hops": hops,
     }
 
-    report_suffix = (
-        f"_bm25_k{k}" if retrieval_method == "bm25" else f"_k{k}"
-    )
+    report_suffix = {
+        "tfidf": f"_k{k}",
+        "bm25": f"_bm25_k{k}",
+        "rrf": f"_rrf_k{k}",
+    }[retrieval_method]
 
     report_path = REPORT_PATH.with_name(
         f"{REPORT_PATH.stem}{report_suffix}{REPORT_PATH.suffix}"
@@ -271,7 +275,7 @@ def main() -> None:
 
     parser.add_argument(
         "--retrieval-method",
-        choices=["tfidf", "bm25"],
+        choices=["tfidf", "bm25", "rrf"],
         default="tfidf",
         help="Document retrieval method (default: tfidf).",
     )

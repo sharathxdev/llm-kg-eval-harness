@@ -67,10 +67,12 @@ def test_invalid_hops_raise_error(monkeypatch):
         "retrieval_method",
         "expected_report_name",
         "expected_embedding_provider",
+        "expected_method",
     ),
     [
-        ("tfidf", "retrieval_report_k3.json", "TF-IDF"),
-        ("bm25", "retrieval_report_bm25_k3.json", None),
+        ("tfidf", "retrieval_report_k3.json", "TF-IDF", "TF-IDF"),
+        ("bm25", "retrieval_report_bm25_k3.json", None, "BM25"),
+        ("rrf", "retrieval_report_rrf_k3.json", "TF-IDF", "RRF"),
     ],
 )
 def test_runner_generates_retrieval_report(
@@ -79,6 +81,7 @@ def test_runner_generates_retrieval_report(
     retrieval_method,
     expected_report_name,
     expected_embedding_provider,
+    expected_method,
 ):
     dataset = [
         {
@@ -156,7 +159,6 @@ def test_runner_generates_retrieval_report(
         report["metadata"]["embedding_provider"]
         == expected_embedding_provider
     )
-    expected_method = "TF-IDF" if retrieval_method == "tfidf" else "BM25"
     assert report["metadata"]["retrieval_method"] == expected_method
     assert report["metadata"]["document_count"] == 1
     assert report["metadata"]["graph_relationship_count"] == 2
