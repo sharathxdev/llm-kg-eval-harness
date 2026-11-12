@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from src.graph_builder import KnowledgeGraphBuilder
@@ -149,3 +151,162 @@ def test_empty_extraction_list_returns_empty_graph():
 
     assert graph.number_of_nodes() == 0
     assert graph.number_of_edges() == 0
+
+
+
+def test_unclassified_sentence_does_not_create_relationship(tmp_path):
+    document = {
+        "id": "DOC-UNKNOWN-001",
+        "title": "Deployment Inventory",
+        "category": "Architecture",
+        "content": (
+            "AuthService and PaymentGateway are listed together "
+            "in the deployment inventory."
+        ),
+    }
+
+    corpus_path = tmp_path / "documents.json"
+    corpus_path.write_text(
+        json.dumps([document]),
+        encoding="utf-8",
+    )
+
+    builder = KnowledgeGraphBuilder()
+    graph = builder.build_from_corpus(str(corpus_path))
+
+    assert graph.has_node("AuthService")
+    assert graph.has_node("PaymentGateway")
+    assert graph.number_of_edges() == 0
+
+
+def test_explicit_works_with_relationship_is_preserved():
+    builder = KnowledgeGraphBuilder()
+
+    relation = builder._infer_relation_type(
+        "AuthService communicates with PaymentGateway."
+    )
+
+    assert relation == "WORKS_WITH"
+
+
+def test_unclassified_sentence_returns_no_relationship():
+    builder = KnowledgeGraphBuilder()
+
+    relation = builder._infer_relation_type(
+        "AuthService and PaymentGateway are listed together."
+    )
+
+    assert relation is None
+
+
+def test_pronoun_subject_and_precise_storage_relationships(tmp_path):
+    document = {
+        "id": "DOC-PRONOUN-001",
+        "title": "Identity Storage",
+        "category": "Architecture",
+        "content": (
+            "AuthService provides OAuth2-based authentication. "
+            "It stores identity records in PostgresCluster and "
+            "caches access tokens in RedisCache."
+        ),
+    }
+
+    corpus_path = tmp_path / "documents.json"
+    corpus_path.write_text(
+        json.dumps([document]),
+        encoding="utf-8",
+    )
+
+    builder = KnowledgeGraphBuilder()
+    graph = builder.build_from_corpus(str(corpus_path))
+
+    assert graph.has_edge(
+        "AuthService",
+        "PostgresCluster",
+        key="STORES_IN",
+    )
+    assert graph.has_edge(
+        "AuthService",
+        "RedisCache",
+        key="CACHES_IN",
+    )
+
+    storage_provenance = graph["AuthService"]["PostgresCluster"][
+        "STORES_IN"
+    ]["provenance"]
+
+    assert storage_provenance["document_ids"] == ["DOC-PRONOUN-001"]
+    assert storage_provenance["source_sentences"] == [
+        "It stores identity records in PostgresCluster and "
+        "caches access tokens in RedisCache."
+    ]
+
+
+def test_pronoun_subject_with_single_target_entity(tmp_path):
+    document = {
+        "id": "DOC-PRONOUN-002",
+        "title": "Order Events",
+        "category": "Architecture",
+        "content": (
+            "OrderService coordinates with PaymentGateway. "
+            "It publishes order lifecycle events to KafkaCluster."
+        ),
+    }
+
+    corpus_path = tmp_path / "documents.json"
+    corpus_path.write_text(
+        json.dumps([document]),
+        encoding="utf-8",
+    )
+
+    builder = KnowledgeGraphBuilder()
+    graph = builder.build_from_corpus(str(corpus_path))
+
+    assert graph.has_edge(
+        "OrderService",
+        "KafkaCluster",
+        key="PUBLISHES_TO",
+    )
+
+
+def test_relative_clause_relationships_use_nearest_antecedent(tmp_path):
+    document = {
+        "id": "DOC-RELATIVE-001",
+        "title": "Inventory Dependencies",
+        "category": "Architecture",
+        "content": (
+            "OrderService coordinates PaymentGateway and InventoryService, "
+            "which depend on PostgresCluster and publish events to KafkaCluster."
+        ),
+    }
+
+    corpus_path = tmp_path / "documents.json"
+    corpus_path.write_text(
+        json.dumps([document]),
+        encoding="utf-8",
+    )
+
+    builder = KnowledgeGraphBuilder()
+    graph = builder.build_from_corpus(str(corpus_path))
+
+    assert graph.has_edge(
+        "InventoryService",
+        "PostgresCluster",
+        key="DEPENDS_ON",
+    )
+    assert graph.has_edge(
+        "InventoryService",
+        "KafkaCluster",
+        key="PUBLISHES_TO",
+    )
+
+    assert not graph.has_edge(
+        "OrderService",
+        "PostgresCluster",
+        key="DEPENDS_ON",
+    )
+    assert not graph.has_edge(
+        "OrderService",
+        "KafkaCluster",
+        key="PUBLISHES_TO",
+    )

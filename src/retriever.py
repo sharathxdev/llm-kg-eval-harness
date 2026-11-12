@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import deque
+
 import logging
 import re
 from pathlib import Path
@@ -437,41 +439,71 @@ class HybridGraphRetriever:
 
     def _get_graph_context(
         self,
-        entity_id: str,
+        entity_ids: str | list[str],
         hops: int,
     ) -> list[str]:
-        """Create deterministic relationship statements around an entity."""
+        """Return relevant relationships using multi-source BFS traversal."""
         graph = self.graph_engine.graph
 
-        if not graph.has_node(entity_id):
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+
+        seed_ids = sorted({
+            entity_id
+            for entity_id in entity_ids
+            if graph.has_node(entity_id)
+        })
+
+        if not seed_ids:
             return []
 
-        traversal = self.graph_engine.multi_hop_traversal(
-            start_entity_id=entity_id,
-            max_depth=hops,
-            direction="both",
-        )
-
-        node_ids = {entity_id}
-        node_ids.update(
-            item["entity"]["id"]
-            for item in traversal
-            if item.get("entity")
-        )
-
+        queue = deque((entity_id, 0) for entity_id in seed_ids)
+        visited = set(seed_ids)
         statements: set[str] = set()
 
-        for source, target, attributes in graph.edges(data=True):
-            if source not in node_ids or target not in node_ids:
+        while queue:
+            current_id, depth = queue.popleft()
+
+            if depth >= hops:
                 continue
 
-            source_name = graph.nodes[source].get("name", source)
-            target_name = graph.nodes[target].get("name", target)
-            relation = attributes.get("relation_type", "RELATED_TO")
+            neighbors = set(graph.successors(current_id))
+            neighbors.update(graph.predecessors(current_id))
 
-            statements.add(
-                f"{source_name} --[{relation}]--> {target_name}"
-            )
+            for neighbor_id in sorted(neighbors):
+                is_new = neighbor_id not in visited
+
+                # Include direct seed relationships and only the edges
+                # that discover new nodes at subsequent traversal levels.
+                if depth == 0 or is_new:
+                    for source, target in (
+                        (current_id, neighbor_id),
+                        (neighbor_id, current_id),
+                    ):
+                        edge_groups = graph.get_edge_data(
+                            source,
+                            target,
+                            default={},
+                        )
+
+                        for attributes in edge_groups.values():
+                            source_name = graph.nodes[source].get(
+                                "name", source
+                            )
+                            target_name = graph.nodes[target].get(
+                                "name", target
+                            )
+                            relation = attributes.get(
+                                "relation_type", "RELATED_TO"
+                            )
+
+                            statements.add(
+                                f"{source_name} --[{relation}]--> {target_name}"
+                            )
+
+                if is_new:
+                    visited.add(neighbor_id)
+                    queue.append((neighbor_id, depth + 1))
 
         return sorted(statements)
 
@@ -498,14 +530,14 @@ class HybridGraphRetriever:
         retrieved_chunks = self._retrieve_documents(query, top_k)
         matched_entities = self._detect_entities(query)
 
-        graph_context: list[str] = []
+        seed_entity_ids = [
+            entity["id"] for entity in matched_entities
+        ]
 
-        for entity in matched_entities:
-            graph_context.extend(
-                self._get_graph_context(entity["id"], hops)
-            )
-
-        graph_context = sorted(set(graph_context))
+        graph_context = self._get_graph_context(
+            seed_entity_ids,
+            hops,
+        )
 
         context_parts = []
 

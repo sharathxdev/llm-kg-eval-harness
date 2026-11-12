@@ -17,7 +17,7 @@ def engine():
 def test_graph_initialization(engine):
     assert isinstance(engine.graph, nx.MultiDiGraph)
     assert engine.graph.number_of_nodes() == 12
-    assert engine.graph.number_of_edges() == 54
+    assert engine.graph.number_of_edges() == 22
 
 
 def test_get_existing_entity(engine):
@@ -84,9 +84,18 @@ def test_multi_hop_traversal(engine):
         for item in results
     }
 
-    assert len(entity_ids) == 11
+    assert entity_ids == {
+        "API Gateway",
+        "InventoryService",
+        "PaymentGateway",
+        "PostgresCluster",
+        "RedisCache",
+        "OrderService",
+        "KafkaCluster",
+        "NotificationService",
+    }
     assert "AuthService" not in entity_ids
-    assert "Incident-304" in entity_ids
+    assert "Incident-304" not in entity_ids
 
 
 def test_multi_hop_invalid_depth(engine):
@@ -121,7 +130,7 @@ def test_filter_relationships(engine):
         "DEPENDS_ON"
     )
 
-    assert len(relationships) == 8
+    assert len(relationships) == 7
 
     assert all(
         item["relation_type"] == "DEPENDS_ON"
@@ -134,7 +143,7 @@ def test_filter_relationships_case_insensitive(engine):
         "depends_on"
     )
 
-    assert len(relationships) == 8
+    assert len(relationships) == 7
 
 
 def test_extract_subgraph(engine):
@@ -146,7 +155,7 @@ def test_extract_subgraph(engine):
 
     assert isinstance(subgraph, nx.MultiDiGraph)
     assert "AuthService" in subgraph.nodes
-    assert subgraph.number_of_nodes() == 12
+    assert subgraph.number_of_nodes() == 9
 
 
 def test_extract_subgraph_invalid_entity(engine):

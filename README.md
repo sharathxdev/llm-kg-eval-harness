@@ -9,6 +9,9 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 - Knowledge graph construction using NetworkX.
 - Multi-hop graph traversal and relationship queries.
 - TF-IDF and BM25 document retrieval.
+- Reciprocal Rank Fusion (RRF) of TF-IDF and BM25 rankings.
+- Multi-source breadth-first graph-context retrieval.
+- Relationship provenance with source document IDs and sentences.
 - Sentence Transformers embedding support.
 - Evidence-grounded LLM answer generation.
 - FastAPI REST endpoints.
@@ -24,7 +27,7 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 | Validation | Pydantic v2 |
 | Graph | NetworkX |
 | Embeddings | Sentence Transformers |
-| Retrieval | TF-IDF, BM25 |
+| Retrieval | TF-IDF, BM25, RRF |
 | API | FastAPI, Uvicorn |
 | Evaluation | Precision, Recall, F1, MRR, NDCG |
 | Testing | Pytest |
@@ -45,7 +48,7 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 - `src/pipeline.py`: GraphRAG answer generation.
 - `src/retriever.py`: TF-IDF, embedding and BM25 retrieval.
 - `src/retrieval_evaluator.py`: Retrieval metrics.
-- `src/retrieval_comparison.py`: TF-IDF and BM25 comparison.
+- `src/retrieval_comparison.py`: TF-IDF, BM25 and RRF comparison.
 - `src/run_evaluation.py`: Extraction evaluation runner.
 - `src/run_graph_extraction.py`: Graph extraction runner.
 - `src/run_llm_evaluation.py`: Live LLM evaluation runner.
@@ -116,9 +119,9 @@ Interactive API documentation: `http://127.0.0.1:8000/docs`
 
 The retrieval benchmark contains 10 queries and uses a corpus of 15 documents.
 
-Evaluate TF-IDF and BM25 at K = 3, 5 and 10:
+Evaluate TF-IDF, BM25 and RRF at K = 3, 5 and 10:
 
-    for method in tfidf bm25; do
+    for method in tfidf bm25 rrf; do
         for k in 3 5 10; do
             python -m src.run_retrieval_evaluation \
                 --k "$k" \
@@ -135,18 +138,21 @@ Generate the comparison report:
 
 Results from the current synthetic benchmark (10 queries, 15 documents):
 
-| Method | K | Precision | Recall | MRR | NDCG |
-|---|---:|---:|---:|---:|---:|
-| TF-IDF | 3 | 0.8000 | 0.5950 | 1.0000 | 0.8531 |
-| BM25 | 3 | 0.8000 | 0.5658 | 1.0000 | 0.8531 |
-| TF-IDF | 5 | 0.7000 | 0.8250 | 1.0000 | 0.8889 |
-| BM25 | 5 | 0.6200 | 0.7025 | 1.0000 | 0.8125 |
-| TF-IDF | 10 | 0.4200 | 0.9417 | 1.0000 | 0.9237 |
-| BM25 | 10 | 0.4100 | 0.9250 | 1.0000 | 0.8906 |
+| Method | K | Precision | Recall | Hit Rate | MRR | NDCG |
+|---|---:|---:|---:|---:|---:|---:|
+| TF-IDF | 3 | 0.8000 | 0.5950 | 1.0000 | 1.0000 | 0.8531 |
+| BM25 | 3 | 0.8000 | 0.5658 | 1.0000 | 1.0000 | 0.8531 |
+| RRF | 3 | 0.7667 | 0.5617 | 1.0000 | 1.0000 | 0.8296 |
+| TF-IDF | 5 | 0.7000 | 0.8250 | 1.0000 | 1.0000 | 0.8889 |
+| BM25 | 5 | 0.6200 | 0.7025 | 1.0000 | 1.0000 | 0.8125 |
+| RRF | 5 | 0.6600 | 0.7717 | 1.0000 | 1.0000 | 0.8509 |
+| TF-IDF | 10 | 0.4200 | 0.9417 | 1.0000 | 1.0000 | 0.9237 |
+| BM25 | 10 | 0.4100 | 0.9250 | 1.0000 | 1.0000 | 0.8906 |
+| RRF | 10 | 0.4200 | 0.9417 | 1.0000 | 1.0000 | 0.9188 |
 
-TF-IDF achieved higher recall and NDCG at the evaluated K values. Both methods achieved a Hit Rate and MRR of 1.0.
+TF-IDF achieved the strongest overall ranking results on this benchmark. RRF was competitive with BM25 but did not consistently outperform TF-IDF. All three methods achieved a Hit Rate and MRR of 1.0 at every evaluated K.
 
-Graph entity evaluation reported an F1 score of 1.0 for both methods on this dataset.
+Graph entity evaluation reported an F1 score of 1.0 for all three methods. This measures query-entity matching against the evaluation expectations; it does not measure knowledge graph relationship-extraction accuracy.
 
 These results describe this particular synthetic benchmark. They are not a guarantee of performance on larger or real-world enterprise datasets.
 
@@ -191,7 +197,8 @@ The tests cover document processing, graph construction, graph traversal, extrac
 
 - The benchmark datasets are synthetic and relatively small.
 - Entity detection relies on known entity names, IDs and configured aliases in the query.
-- TF-IDF and BM25 are evaluated separately; their scores are not fused into one ranking.
+- RRF combines TF-IDF and BM25 rankings using rank fusion rather than directly combining their raw scores.
+- Rule-based graph relationship extraction uses configured entity names and a finite set of relationship patterns; ambiguous or unsupported patterns may be skipped.
 - The automatic embedding provider prefers Sentence Transformers and falls back to TF-IDF when the transformer model cannot be loaded.
 - Production deployment would require additional authentication, rate limiting, monitoring, persistent storage and security hardening.
 

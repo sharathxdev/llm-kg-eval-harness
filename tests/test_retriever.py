@@ -581,3 +581,103 @@ def test_rrf_keeps_negative_bm25_scores_and_original_rank(
     assert results[0]["bm25_rank"] == 2
     assert results[0]["bm25_score"] == -0.5
     assert results[0]["retrieval_score"] == pytest.approx(1 / 62)
+
+
+
+def test_graph_context_excludes_untraversed_relationships():
+    graph = nx.MultiDiGraph()
+
+    for entity in (
+        "Root",
+        "Neighbor",
+        "SecondHopA",
+        "SecondHopB",
+    ):
+        graph.add_node(entity, name=entity)
+
+    graph.add_edge(
+        "Root", "Neighbor",
+        key="DEPENDS_ON",
+        relation_type="DEPENDS_ON",
+        weight=1.0,
+    )
+    graph.add_edge(
+        "Neighbor", "SecondHopA",
+        key="DEPENDS_ON",
+        relation_type="DEPENDS_ON",
+        weight=1.0,
+    )
+    graph.add_edge(
+        "Neighbor", "SecondHopB",
+        key="ROUTES_TO",
+        relation_type="ROUTES_TO",
+        weight=1.0,
+    )
+
+    # This connects two discovered nodes but is not part of the
+    # breadth-first discovery paths from Root.
+    graph.add_edge(
+        "SecondHopA", "SecondHopB",
+        key="WORKS_WITH",
+        relation_type="WORKS_WITH",
+        weight=1.0,
+    )
+
+    retriever = HybridGraphRetriever(
+        graph_engine=GraphQueryEngine(graph),
+        embedding_provider=MockEmbeddingProvider(),
+        documents=[],
+    )
+
+    context = retriever._get_graph_context("Root", hops=2)
+
+    assert "Root --[DEPENDS_ON]--> Neighbor" in context
+    assert "Neighbor --[DEPENDS_ON]--> SecondHopA" in context
+    assert "Neighbor --[ROUTES_TO]--> SecondHopB" in context
+
+    assert (
+        "SecondHopA --[WORKS_WITH]--> SecondHopB"
+        not in context
+    )
+
+
+
+def test_graph_context_supports_multiple_seed_entities():
+    graph = nx.MultiDiGraph()
+
+    for entity in ("RootA", "RootB", "Shared", "Leaf"):
+        graph.add_node(entity, name=entity)
+
+    graph.add_edge(
+        "RootA", "Shared",
+        key="DEPENDS_ON",
+        relation_type="DEPENDS_ON",
+        weight=1.0,
+    )
+    graph.add_edge(
+        "RootB", "Shared",
+        key="ROUTES_TO",
+        relation_type="ROUTES_TO",
+        weight=1.0,
+    )
+    graph.add_edge(
+        "RootB", "Leaf",
+        key="PUBLISHES_TO",
+        relation_type="PUBLISHES_TO",
+        weight=1.0,
+    )
+
+    retriever = HybridGraphRetriever(
+        graph_engine=GraphQueryEngine(graph),
+        embedding_provider=MockEmbeddingProvider(),
+        documents=[],
+    )
+
+    context = retriever._get_graph_context(
+        ["RootA", "RootB"],
+        hops=1,
+    )
+
+    assert "RootA --[DEPENDS_ON]--> Shared" in context
+    assert "RootB --[ROUTES_TO]--> Shared" in context
+    assert "RootB --[PUBLISHES_TO]--> Leaf" in context
