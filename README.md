@@ -1,6 +1,9 @@
 # Enterprise GraphRAG Evaluation Harness
 
-An end-to-end Python project for LLM-based information extraction, knowledge graph construction, document retrieval, graph-enhanced retrieval-augmented generation (GraphRAG), and quantitative evaluation.
+An end-to-end Python project for LLM-based information extraction,
+knowledge graph construction, hybrid document retrieval,
+graph-enhanced retrieval-augmented generation (GraphRAG), and
+quantitative evaluation.
 
 ## Key Features
 
@@ -15,8 +18,11 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 - Sentence Transformers embedding support.
 - Evidence-grounded LLM answer generation.
 - FastAPI REST endpoints.
-- Extraction and retrieval evaluation.
-- Automated testing with Pytest.
+- Entity and relationship precision, recall and F1 evaluation.
+- Retrieval benchmarking using Precision@K, Recall@K, MRR and NDCG.
+- LLM-as-a-Judge evaluation for faithfulness and answer relevance.
+- Reproducible answer-quality reports with original evidence snapshots.
+- Automated testing, linting, type checking and security scanning.
 
 ## Technology Stack
 
@@ -26,34 +32,41 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 | LLM | OpenAI Python SDK |
 | Validation | Pydantic v2 |
 | Graph | NetworkX |
-| Embeddings | Sentence Transformers |
+| Embeddings | Sentence Transformers, TF-IDF |
 | Retrieval | TF-IDF, BM25, RRF |
 | API | FastAPI, Uvicorn |
 | Evaluation | Precision, Recall, F1, MRR, NDCG |
+| Answer quality | LLM-as-a-Judge, faithfulness, relevance |
 | Testing | Pytest |
+| Code quality | Ruff, Mypy |
+| Security | Bandit |
 | CI | GitHub Actions |
 
 ## Project Structure
 
 - `data/`: Source enterprise documents.
-- `evals/`: Golden datasets and evaluation reports.
+- `evals/`: Golden datasets and generated evaluation reports.
 - `src/app.py`: FastAPI application.
 - `src/config.py`: Application configuration.
 - `src/data_processor.py`: Document validation and cleaning.
-- `src/evaluator.py`: Extraction evaluation.
+- `src/evaluator.py`: Entity and relationship extraction evaluation.
 - `src/extractor.py`: LLM entity and relationship extraction.
 - `src/graph_builder.py`: Knowledge graph construction.
 - `src/graph_engine.py`: Graph querying and traversal.
 - `src/graph_loader.py`: Exported graph loading.
-- `src/pipeline.py`: GraphRAG answer generation.
 - `src/retriever.py`: TF-IDF, embedding and BM25 retrieval.
-- `src/retrieval_evaluator.py`: Retrieval metrics.
+- `src/pipeline.py`: GraphRAG answer generation.
+- `src/retrieval_evaluator.py`: Retrieval evaluation metrics.
 - `src/retrieval_comparison.py`: TF-IDF, BM25 and RRF comparison.
+- `src/answer_evaluator.py`: LLM-as-a-Judge engine.
+- `src/judge_prompts.py`: Faithfulness and relevance rubrics.
 - `src/run_evaluation.py`: Extraction evaluation runner.
 - `src/run_graph_extraction.py`: Graph extraction runner.
-- `src/run_llm_evaluation.py`: Live LLM evaluation runner.
+- `src/run_llm_evaluation.py`: Live LLM extraction evaluation.
 - `src/run_retrieval_evaluation.py`: Retrieval evaluation runner.
-- `tests/`: Automated tests.
+- `src/run_answer_evaluation.py`: GraphRAG answer-quality benchmark.
+- `src/run_saved_answer_judging.py`: Judge previously generated answers.
+- `tests/`: Automated test suite.
 
 ## Prerequisites
 
@@ -65,43 +78,60 @@ An end-to-end Python project for LLM-based information extraction, knowledge gra
 
 ### 1. Clone the repository
 
-    git clone https://github.com/sharathxdev/llm-kg-eval-harness.git
-    cd llm-kg-eval-harness
+```bash
+git clone https://github.com/sharathxdev/llm-kg-eval-harness.git
+cd llm-kg-eval-harness
+```
 
 ### 2. Create a virtual environment
 
-    python3.13 -m venv .venv
-    source .venv/bin/activate
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+```
 
 ### 3. Install dependencies
 
-    python -m pip install --upgrade pip
-    python -m pip install -r requirements.txt
+For application execution:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+For development and quality checks:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
 
 ### 4. Configure environment variables
 
 Create a local environment file:
 
-    cp .env.example .env
+```bash
+cp .env.example .env
+```
 
-Configure the following values inside `.env`:
+Configure:
 
 - `OPENAI_API_KEY`: Your OpenAI API key.
-- `OPENAI_MODEL`: `gpt-4o-mini` by default.
+- `OPENAI_MODEL`: Model name, defaulting to `gpt-4o-mini`.
 
 Never commit your real API key. The `.env` file is excluded from Git.
-
-Retrieval benchmarks and automated tests do not require a live OpenAI API key.
 
 ## Running the Application
 
 ### Run automated tests
 
-    python -m pytest -q
+```bash
+python -m pytest -q
+```
 
-### Start the FastAPI server
+### Start FastAPI
 
-    uvicorn src.app:app --reload
+```bash
+uvicorn src.app:app --reload
+```
 
 API base URL: `http://127.0.0.1:8000`
 
@@ -117,26 +147,31 @@ Interactive API documentation: `http://127.0.0.1:8000/docs`
 
 ## Retrieval Evaluation
 
-The retrieval benchmark contains 10 queries and uses a corpus of 15 documents.
+The retrieval benchmark contains 10 queries and uses a corpus of
+15 synthetic enterprise documents.
 
 Evaluate TF-IDF, BM25 and RRF at K = 3, 5 and 10:
 
-    for method in tfidf bm25 rrf; do
-        for k in 3 5 10; do
-            python -m src.run_retrieval_evaluation \
-                --k "$k" \
-                --hops 2 \
-                --retrieval-method "$method"
-        done
+```bash
+for method in tfidf bm25 rrf; do
+    for k in 3 5 10; do
+        python -m src.run_retrieval_evaluation \
+            --k "$k" \
+            --hops 2 \
+            --retrieval-method "$method"
     done
+done
+```
 
 Generate the comparison report:
 
-    python -m src.retrieval_comparison
+```bash
+python -m src.retrieval_comparison
+```
 
-## Benchmark Results
+## Retrieval Benchmark Results
 
-Results from the current synthetic benchmark (10 queries, 15 documents):
+Results from the current synthetic benchmark:
 
 | Method | K | Precision | Recall | Hit Rate | MRR | NDCG |
 |---|---:|---:|---:|---:|---:|---:|
@@ -150,34 +185,134 @@ Results from the current synthetic benchmark (10 queries, 15 documents):
 | BM25 | 10 | 0.4100 | 0.9250 | 1.0000 | 1.0000 | 0.8906 |
 | RRF | 10 | 0.4200 | 0.9417 | 1.0000 | 1.0000 | 0.9188 |
 
-TF-IDF achieved the strongest overall ranking results on this benchmark. RRF was competitive with BM25 but did not consistently outperform TF-IDF. All three methods achieved a Hit Rate and MRR of 1.0 at every evaluated K.
+TF-IDF achieved the strongest overall ranking results in this benchmark.
+RRF was competitive with BM25 but did not consistently outperform TF-IDF.
 
-Graph entity evaluation reported an F1 score of 1.0 for all three methods. This measures query-entity matching against the evaluation expectations; it does not measure knowledge graph relationship-extraction accuracy.
-
-These results describe this particular synthetic benchmark. They are not a guarantee of performance on larger or real-world enterprise datasets.
+Graph entity evaluation reported an F1 score of 1.0 for all three
+methods. This measures query-entity matching against the evaluation
+expectations, not relationship-extraction accuracy.
 
 ## LLM Extraction and Evaluation
 
 Run graph extraction:
 
-    python -m src.run_graph_extraction
+```bash
+python -m src.run_graph_extraction
+```
 
 Run LLM extraction evaluation:
 
-    python -m src.run_llm_evaluation
+```bash
+python -m src.run_llm_evaluation
+```
 
-These commands make real LLM API requests and may incur API charges. Configure your API key before running them.
+These commands make live LLM API requests and may incur API charges.
+
+## GraphRAG Answer-Quality Evaluation
+
+The answer-quality evaluator measures two dimensions:
+
+**Faithfulness (1–5)**
+
+Measures whether factual claims in the generated answer are supported
+by the retrieved document and knowledge graph context.
+
+**Answer relevance (1–5)**
+
+Measures whether the answer directly addresses the user's question.
+
+The overall score is the arithmetic mean of the two dimension scores.
+
+### Generate GraphRAG answers
+
+Run the complete 10-question benchmark:
+
+```bash
+python -m src.run_answer_evaluation \
+    --judge-mode mock \
+    --retrieval-method tfidf \
+    --top-k 3 \
+    --hops 2 \
+    --output evals/reports/answer_quality_full.json
+```
+
+Important: mock judge mode only replaces the judge with a deterministic
+lexical-overlap heuristic. GraphRAG answer generation still calls the
+configured LLM and requires an OpenAI API key.
+
+The mock scores are not real LLM judgments.
+
+### Run real LLM-as-a-Judge evaluation
+
+Evaluate the previously generated answers:
+
+```bash
+python -m src.run_saved_answer_judging \
+    --input evals/reports/answer_quality_full.json \
+    --output evals/reports/answer_quality_full_llm_judged.json
+```
+
+The judge evaluates faithfulness and relevance independently.
+
+For reports created by the current answer runner, the original
+retrieval evidence is preserved and reused during judging. Older
+reports without an evidence snapshot are supported through a
+retrieval fallback.
+
+### Run generation and judging in one operation
+
+The answer runner can also use the real LLM judge directly:
+
+```bash
+python -m src.run_answer_evaluation \
+    --judge-mode llm \
+    --retrieval-method tfidf \
+    --top-k 3 \
+    --hops 2 \
+    --output evals/reports/answer_quality_full_llm.json
+```
+
+This performs answer generation and both judge evaluations for every
+sample in a single run.
+
+These workflows make live LLM API requests and may incur API charges.
+
+### Answer-quality benchmark results
+
+Results from the completed 10-query benchmark using 15 synthetic
+enterprise documents, TF-IDF retrieval, top K = 3 and two-hop graph
+context:
+
+| Metric | Result |
+|---|---:|
+| Questions | 10 |
+| Successful generations | 10/10 |
+| Successful LLM judgments | 10/10 |
+| Average faithfulness | 5.0/5 |
+| Average answer relevance | 4.8/5 |
+| Average overall answer quality | 4.9/5 |
+| Average generation latency | 2,834 ms |
+| Average judge latency | 5,303 ms |
+
+The LLM judge used `gpt-4o-mini`.
+
+These values are results from one benchmark execution. They are
+model-judged scores, not independently verified ground-truth accuracy.
+The benchmark is small and synthetic, and should be expanded with
+independently annotated enterprise questions and human review.
 
 ## Evaluation Metrics
 
-Document retrieval:
+### Retrieval
+
 - Precision@K
 - Recall@K
 - Hit Rate@K
 - Mean Reciprocal Rank (MRR@K)
 - Normalized Discounted Cumulative Gain (NDCG@K)
 
-Graph entity and extraction evaluation:
+### Entity and relationship extraction
+
 - True positives
 - False positives
 - False negatives
@@ -185,27 +320,113 @@ Graph entity and extraction evaluation:
 - Recall
 - F1 score
 
-## Testing
+### Generated answer quality
 
-Run the full test suite:
+- Faithfulness
+- Answer relevance
+- Overall answer-quality score
+- Generation latency
+- Judge latency
 
-    python -m pytest -q
+## Code Quality
 
-The tests cover document processing, graph construction, graph traversal, extraction validation, retrieval, evaluation metrics, benchmark comparison, GraphRAG generation, and API behavior.
+Install the development tools:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Run Ruff on the answer-evaluation modules:
+
+```bash
+ruff check \
+    src/answer_evaluator.py \
+    src/judge_prompts.py \
+    src/run_answer_evaluation.py \
+    src/run_saved_answer_judging.py \
+    tests/test_answer_evaluator.py \
+    tests/test_run_answer_evaluation.py \
+    tests/test_run_saved_answer_judging.py
+```
+
+Check formatting:
+
+```bash
+ruff format --check \
+    src/answer_evaluator.py \
+    src/judge_prompts.py \
+    src/run_answer_evaluation.py \
+    src/run_saved_answer_judging.py \
+    tests/test_answer_evaluator.py \
+    tests/test_run_answer_evaluation.py \
+    tests/test_run_saved_answer_judging.py
+```
+
+Run Mypy:
+
+```bash
+mypy --follow-imports=skip --ignore-missing-imports \
+    src/answer_evaluator.py \
+    src/judge_prompts.py \
+    src/run_answer_evaluation.py \
+    src/run_saved_answer_judging.py
+```
+
+Run Bandit:
+
+```bash
+bandit -q \
+    src/answer_evaluator.py \
+    src/judge_prompts.py \
+    src/run_answer_evaluation.py \
+    src/run_saved_answer_judging.py
+```
+
+These focused checks cover the new answer-evaluation modules.
+
+## Testing and Continuous Integration
+
+Run the complete suite:
+
+```bash
+python -m pytest -q
+```
+
+GitHub Actions automatically runs:
+
+- Ruff lint and formatting checks.
+- Mypy type checks for the answer-evaluation modules.
+- Bandit security scanning.
+- The complete Pytest suite.
+
+The automated workflow runs on pushes and pull requests targeting
+the `main` branch.
+
+The full test suite covers data cleaning, graph construction,
+multi-hop traversal, extraction, retrieval, evaluation metrics,
+benchmark comparison, answer evaluation, saved-answer judging,
+GraphRAG generation and API behavior.
 
 ## Current Limitations
 
 - The benchmark datasets are synthetic and relatively small.
-- Entity detection relies on known entity names, IDs and configured aliases in the query.
-- RRF combines TF-IDF and BM25 rankings using rank fusion rather than directly combining their raw scores.
-- Rule-based graph relationship extraction uses configured entity names and a finite set of relationship patterns; ambiguous or unsupported patterns may be skipped.
-- The automatic embedding provider prefers Sentence Transformers and falls back to TF-IDF when the transformer model cannot be loaded.
-- Production deployment would require additional authentication, rate limiting, monitoring, persistent storage and security hardening.
+- LLM-as-a-Judge scores may be biased and are not a substitute for
+  human-verified ground truth.
+- Entity detection relies on known entity names, IDs and configured
+  aliases in the query.
+- RRF currently combines TF-IDF and BM25 rankings, not dense
+  Sentence Transformer rankings.
+- Rule-based graph relationship extraction uses configured entity
+  names and a finite set of relationship patterns.
+- Production deployment requires additional authentication, rate
+  limiting, monitoring, persistent storage and security hardening.
 
 ## Future Improvements
 
-- Dense and sparse retrieval score fusion.
+- Dense-vector and sparse BM25 rank fusion.
 - Larger and more diverse golden datasets.
+- Human-annotated answer-quality ground truth.
+- LLM judge calibration and multi-judge agreement analysis.
 - Per-query and statistical benchmark analysis.
 - Improved entity linking and alias resolution.
 - Persistent vector and graph storage.
