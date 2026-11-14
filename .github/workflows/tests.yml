@@ -1,18 +1,20 @@
-name: Python Tests
+name: Python Quality and Tests
 
 on:
   push:
     branches: [main]
+
   pull_request:
     branches: [main]
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Run Pytest
+  quality-and-tests:
+    name: Code Quality and Pytest
     runs-on: ubuntu-latest
 
     steps:
@@ -24,11 +26,52 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+          cache-dependency-path: requirements-dev.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
 
-      - name: Run tests
+      - name: Ruff lint
+        run: |
+          ruff check \
+            src/answer_evaluator.py \
+            src/judge_prompts.py \
+            src/run_answer_evaluation.py \
+            src/run_saved_answer_judging.py \
+            tests/test_answer_evaluator.py \
+            tests/test_run_answer_evaluation.py \
+            tests/test_run_saved_answer_judging.py
+
+      - name: Ruff formatting
+        run: |
+          ruff format --check \
+            src/answer_evaluator.py \
+            src/judge_prompts.py \
+            src/run_answer_evaluation.py \
+            src/run_saved_answer_judging.py \
+            tests/test_answer_evaluator.py \
+            tests/test_run_answer_evaluation.py \
+            tests/test_run_saved_answer_judging.py
+
+      - name: Mypy type checking
+        run: |
+          mypy \
+            --follow-imports=skip \
+            --ignore-missing-imports \
+            src/answer_evaluator.py \
+            src/judge_prompts.py \
+            src/run_answer_evaluation.py \
+            src/run_saved_answer_judging.py
+
+      - name: Bandit security scan
+        run: |
+          bandit -q \
+            src/answer_evaluator.py \
+            src/judge_prompts.py \
+            src/run_answer_evaluation.py \
+            src/run_saved_answer_judging.py
+
+      - name: Run complete test suite
         run: python -m pytest -q
