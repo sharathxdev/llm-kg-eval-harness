@@ -66,12 +66,6 @@ jobs:
             src/run_saved_answer_judging.py
 
       - name: Bandit security scan
-        run: |
-          bandit -q \
-            src/answer_evaluator.py \
-            src/judge_prompts.py \
-            src/run_answer_evaluation.py \
-            src/run_saved_answer_judging.py
-
+        run: bandit -q -r src
       - name: Run complete test suite
         run: python -m pytest -q
