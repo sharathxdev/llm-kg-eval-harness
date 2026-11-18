@@ -16,7 +16,7 @@ class EntityType(str, Enum):
 
 
 class EntityNode(BaseModel):
-    """Represents an entity stored as a knowledge graph node."""
+    """Represents an entity stored in as a knowledge graph node."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
